@@ -2,12 +2,13 @@
 """Offline regressions: no attached device, no injected input."""
 import dataclasses
 import subprocess
+import sys
 import threading
 import time
 import unittest
 from unittest.mock import patch, Mock
 import numpy as np
-from fisher.adb import Adb, AdbError, Frame, LatestCapture, MotionGate, crop_frame, validate_phone_settings
+from fisher.adb import Adb, AdbError, Frame, LatestCapture, MotionGate, StreamCapture, StreamFailure, crop_frame, validate_phone_settings
 from fisher.controller import Decision
 from fisher.phone_runtime import PhoneRunner
 from fisher.phone_vision import PhoneDetector
@@ -22,10 +23,17 @@ class AdbTests(unittest.TestCase):
     def test_stream_reconnect_discards_old_display_before_new_frame(self,_):
         r=PhoneRunner('adb','x',dict(PHONE_DEFAULTS),(1000,500),'com.game')
         now=time.perf_counter();frame=Frame(np.zeros((800,360,3),np.uint8),now,now,.02,1,.01)
-        old=Mock();old.width=360;old.height=800;old.thread.is_alive.return_value=False;old.snapshot.side_effect=[(frame,None),(frame,'USB disconnected')];r.capture=old
+        old=Mock();old.width=360;old.height=800;old.thread.is_alive.return_value=False;r.capture=old
+        states = []
+        def before_reconnect():
+            states.append(r.ready.is_set())
+            if len(states) == 1:
+                return frame,None
+            return frame,'USB disconnected'
+        old.snapshot.side_effect = before_reconnect
         replacement=Mock();replacement.width=360;replacement.height=800;replacement.thread.is_alive.return_value=False
         def no_frame():
-            r.stop.set();return None,None
+            states.append(r.ready.is_set());r.stop.set();return None,None
         replacement.snapshot.side_effect=no_frame
         detector=Mock();detector.detect.return_value=(Observation('UNKNOWN'),np.zeros((800,360,3),np.uint8))
         with patch('fisher.phone_runtime.StreamCapture',return_value=replacement),patch('fisher.phone_runtime.PhoneDetector',return_value=detector):r._run()
@@ -33,6 +41,43 @@ class AdbTests(unittest.TestCase):
         while not r.messages.empty():messages.append(r.messages.get_nowait())
         self.assertTrue(any('正在重連' in msg.get('status','') for msg in messages))
         self.assertFalse(any('error' in msg for msg in messages));replacement.start.assert_called_once()
+        self.assertEqual(states, [False, True, False])
+
+    @patch("fisher.phone_runtime.Adb")
+    def test_default_foreground_ignores_launcher_and_accepts_game(self, _):
+        runner = PhoneRunner("adb", "x", dict(PHONE_DEFAULTS), (1000, 500))
+        runner.adb.closed.is_set.return_value = False
+        runner.adb.foreground.side_effect = ["com.android.launcher3", "com.farlightgames.pgame.gp"]
+        states = []
+
+        def tick(_):
+            states.append(runner.foreground_ok)
+            if len(states) == 2:
+                runner.stop.set()
+
+        with patch.object(runner.stop, "wait", side_effect=tick):
+            runner._guard()
+        self.assertEqual(states, [False, True])
+        self.assertTrue(runner.foreground_recovered.is_set())
+        runner.adb.tap.assert_not_called()
+
+    @patch("fisher.phone_runtime.Adb")
+    def test_permanent_stream_failure_reports_reason_without_restart_in_both_modes(self, _):
+        from fisher.ruins_runtime import RuinsRunner
+        for runner_type in (PhoneRunner, RuinsRunner):
+            with self.subTest(runner=runner_type):
+                runner = runner_type("adb", "x", dict(PHONE_DEFAULTS), (1000, 500))
+                error = StreamFailure("缺少解碼器", "FFmpeg: Unknown decoder", retry=False)
+                runner.capture = Mock()
+                runner.capture.snapshot.return_value = (None, error)
+                with patch.object(runner, "_create_capture") as restart:
+                    runner._run()
+                self.assertEqual(runner.messages.get_nowait(), {
+                    "error": "缺少解碼器", "diagnostic": "FFmpeg: Unknown decoder", "fatal": True,
+                })
+                self.assertFalse(runner.ready.is_set())
+                restart.assert_not_called()
+                runner.adb.tap.assert_not_called()
     @patch('fisher.phone_runtime.Adb')
     def test_foreground_adb_error_blocks_without_disarming(self,_):
         r=PhoneRunner('adb','x',dict(PHONE_DEFAULTS),(1000,500),'com.game');r.active.set()
@@ -491,6 +536,59 @@ class AdbTests(unittest.TestCase):
         self.assertTrue((output[-1,:,1]==255).all())
         self.assertIsNone(preview_frame(False,True,frame,None,None,None))
 
+
+class StreamDiagnosticsTests(unittest.TestCase):
+    def test_stderr_is_drained_bounded_and_classifies_only_stable_failures(self):
+        adb = Mock(executable="adb", serial="PRIVATE-SERIAL")
+        popen = subprocess.Popen
+
+        def run_fixture(source_error, decoder_error):
+            stream = StreamCapture(adb, (1000, 500), ffmpeg="custom-ffmpeg")
+            command = []
+
+            def spawn(args, **kwargs):
+                command.append(args)
+                error = source_error if len(command) == 1 else decoder_error
+                script = "import sys; sys.stderr.buffer.write(b'x' * 128_000 + b'\\n' + " + repr(error) + ")"
+                if len(command) == 2:
+                    script += "; sys.stdin.buffer.read()"
+                return popen([sys.executable, "-c", script], **kwargs)
+
+            with patch("fisher.adb.shutil.which", return_value="custom-ffmpeg") as resolve:
+                with patch("fisher.adb.subprocess.Popen", side_effect=spawn):
+                    stream.start()
+                    try:
+                        self.assertTrue(stream.available.wait(5))
+                    finally:
+                        stream.close()
+                        stream.thread.join(timeout=4)
+                resolve.assert_called_once_with("custom-ffmpeg")
+            self.assertFalse(stream.thread.is_alive())
+            self.assertEqual(command[0], [
+                "adb", "-s", "PRIVATE-SERIAL", "exec-out", "screenrecord",
+                "--output-format=h264", "--size", "360x720",
+                "--bit-rate", "1500000", "--time-limit", "0", "-",
+            ])
+            self.assertEqual(command[1][0], "custom-ffmpeg")
+            return stream.snapshot()[1]
+
+        errors = (
+            (b"screenrecord: not found", b"Invalid data found when processing input", False, "手機不支援"),
+            (b"", b"Unrecognized option 'fps_mode'", False, "FFmpeg 無法解碼"),
+            (b"error: device 'PRIVATE-SERIAL' offline", b"Invalid data found when processing input", True, "影像串流結束"),
+        )
+        for source, decoder, retry, reason in errors:
+            with self.subTest(reason=reason):
+                error = run_fixture(source, decoder)
+                self.assertEqual(error.retry, retry)
+                self.assertTrue(error.message.startswith(reason))
+                self.assertIn("ADB:", error.diagnostic)
+                self.assertIn("FFmpeg:", error.diagnostic)
+                self.assertNotIn("PRIVATE-SERIAL", error.diagnostic)
+                if source:
+                    self.assertIn(source.decode().replace("PRIVATE-SERIAL", "[device]"), error.diagnostic)
+                self.assertIn(decoder.decode(), error.diagnostic)
+                self.assertLessEqual(len(error.diagnostic), 820)
 
 class SessionAndCaptureTests(unittest.TestCase):
     def test_pause_resume_preserves_counts_and_freezes_session_time(self):

@@ -30,7 +30,6 @@ Compression=lzma2/fast
 SolidCompression=yes
 SetupIconFile={#PayloadDir}\tt-tool.ico
 UninstallDisplayIcon={app}\tt-tool.ico
-LicenseFile={#PayloadDir}\LICENSE
 WizardStyle=modern light hidebevels
 WizardBackColor=#e9e6ee
 

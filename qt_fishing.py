@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Rounded, task-focused Qt interface for the existing ADB phone runner."""
+import html
 import json
 import queue
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -229,13 +231,15 @@ class ResizeHandle(QtWidgets.QWidget):
 
 class FishingWindow(QtWidgets.QMainWindow):
     SCAN_ACTION = 1
-    ADB_PATH_ACTION = 2
+    TOOLS_ACTION = 2
 
     def __init__(self, mode='fishing', start_after_connect=False, *, install_root=None):
         super().__init__(); self.setWindowTitle('tt tool · 手機活動助手');self.setMinimumSize(680,600);self.setMaximumSize(3840,2160);screen=QtWidgets.QApplication.primaryScreen().availableGeometry();self.resize(min(1180,screen.width()-40),min(900,screen.height()-40))
         self.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Window);self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground);self.drag_pos=None;self.last_headline='';self.window_expanded=False;self.restore_rect=None
         self.mode=mode if mode in ('fishing','ruins') else 'fishing';self.runner=None;self.devices=[];self.q=queue.SimpleQueue();self.busy=False;self.adb_path='adb';self.frame=None;self.zoom_dialog=None;self.zoom_preview=None;self.auto_connect=True;self.pending_start=start_after_connect
         self.saved=validate_phone_settings(dict(PHONE_DEFAULTS));self.settings_path=DATA_ROOT/'phone_settings.json';self.language_path=DATA_ROOT/'tt_tool_ui.json';self.language='zh_TW';self._last_messages=None
+        self.ffmpeg_path = 'ffmpeg'
+        self.connection_diagnostic = ''
         self.ui_preferences = {}
         self.selected_device = None
         try:
@@ -245,9 +249,10 @@ class FishingWindow(QtWidgets.QMainWindow):
             self.ui_preferences = json.loads(self.language_path.read_text(encoding='utf-8'))
             language=self.ui_preferences.get('language','zh_TW')
             if language in dict(LANGUAGE_OPTIONS):self.language=language
-            custom_adb = self.ui_preferences.get('adb_path')
-            if isinstance(custom_adb, str) and Path(custom_adb).is_file():
-                self.adb_path = custom_adb
+            for key in ('adb_path', 'ffmpeg_path'):
+                custom = self.ui_preferences.get(key)
+                if isinstance(custom, str) and Path(custom).is_file():
+                    setattr(self, key, custom)
         except (OSError,ValueError,TypeError,AttributeError):
             self.ui_preferences = {}
         self.draft_settings=deepcopy(self.saved);self.pending_profile_reset=set()
@@ -285,7 +290,10 @@ class FishingWindow(QtWidgets.QMainWindow):
         status_block=QtWidgets.QWidget();status_layout=QtWidgets.QVBoxLayout(status_block);status_layout.setContentsMargins(0,0,0,0);status_layout.setSpacing(4)
         self.headline=self.label('連接你的手機','heroTitle');self.status_effect=QtWidgets.QGraphicsOpacityEffect(self.headline);self.headline.setGraphicsEffect(self.status_effect);self.status_effect.setOpacity(1);self.status_animation=QtCore.QPropertyAnimation(self.status_effect,b'opacity',self);self.status_animation.setDuration(650);self.status_animation.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic);self.status_slide=QtCore.QPropertyAnimation(self.headline,b'pos',self);self.status_slide.setDuration(650);self.status_slide.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic);self.detail=self.label('開啟 USB 偵錯並允許這台電腦','heroDetail');status_layout.addWidget(self.headline);status_layout.addWidget(self.detail)
         self.usb_help = self.button('USB 連線教學', self.show_usb_help, 'usbHelp')
-        status_layout.addWidget(self.usb_help, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.connection_tools = self.button('連線工具', self.show_connection_tools, 'usbHelp')
+        for action in (self.usb_help, self.connection_tools):
+            status_layout.addWidget(action, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.connection_tools.hide()
         hl.addWidget(status_block,1)
         device_block=QtWidgets.QWidget();device_line=QtWidgets.QHBoxLayout(device_block);device_line.setContentsMargins(0,0,0,0);device_line.setSpacing(10);self.device=DisclosureComboBox();self.device.setMinimumWidth(150);device_line.addWidget(self.device,1)
         self.device.setSizeAdjustPolicy(QtWidgets.QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
@@ -401,18 +409,20 @@ class FishingWindow(QtWidgets.QMainWindow):
         self.connect_btn.setVisible(not yes);self.disconnect_btn.setVisible(yes)
         self.disconnect_btn.setEnabled(yes)
         self.usb_help.setVisible(not yes)
+        self.connection_tools.hide()
         self.device.setEnabled(not yes)
         self.update_action_buttons()
         self.connect_btn.setEnabled(not yes)
     def update_action_buttons(self):
         connected=self.runner is not None;active=connected and self.runner.active.is_set()
         session=connected and self.runner.session_started.is_set()
+        ready=connected and self.runner.ready.is_set()
         task='探險' if self.mode=='ruins' else '釣魚'
         text=('暫停' if active else '繼續' if session else '開始')+task
-        for button in (self.start_btn,self.compact_start):button.setEnabled(connected);self.set_text(button,text)
+        for button in (self.start_btn,self.compact_start):button.setEnabled(bool(active or ready));self.set_text(button,text)
         for button in (self.pause_btn,self.compact_pause):button.setEnabled(bool(active or session))
     def update_space_shortcut(self,old,new):
-        command_buttons = (self.usb_help, self.maintenance_button, self.language_button)
+        command_buttons = (self.usb_help, self.connection_tools, self.maintenance_button, self.language_button)
         widget=new
         while widget is not None and widget is not self:
             if isinstance(widget,(QtWidgets.QLineEdit,QtWidgets.QAbstractSpinBox,QtWidgets.QComboBox,AnimatedSwitch,PhonePreview)) or widget in command_buttons:
@@ -450,12 +460,20 @@ class FishingWindow(QtWidgets.QMainWindow):
             except Exception as exc:self.q.put((done,None,str(exc)))
         threading.Thread(target=work,daemon=True).start()
     def refresh(self):
-        if self.runner:return
+        if self.runner or self.busy:
+            return
+        if not shutil.which(self.adb_path):
+            self.auto_connect = False
+            self.show_connection_failure('找不到 ADB；請選擇 Android platform-tools 的 adb.exe')
+            return
+
         def work():
             adb=Adb(self.adb_path)
             try:return adb.devices()
             finally:adb.close()
         def done(devices):
+            self.connection_tools.hide()
+            self.usb_help.show()
             self.devices = devices
             authorized = [d.serial for d in devices if d.state == 'device']
             if self.selected_device not in authorized:
@@ -482,7 +500,7 @@ class FishingWindow(QtWidgets.QMainWindow):
             self.device.addItem(f'{device.serial}  ·  {status}', device.serial)
         self.device.insertSeparator(self.device.count())
         self.device.addItem(self.tr('重新偵測'), self.SCAN_ACTION)
-        self.device.addItem(self.tr('ADB 工具位置…'), self.ADB_PATH_ACTION)
+        self.device.addItem(self.tr('連線工具…'), self.TOOLS_ACTION)
         self.device.setCurrentIndex(max(0, self.device.findData(self.selected_device)))
     def select_device_item(self, index):
         value = self.device.itemData(index)
@@ -492,8 +510,8 @@ class FishingWindow(QtWidgets.QMainWindow):
         self.device.setCurrentIndex(max(0, self.device.findData(self.selected_device)))
         if value == self.SCAN_ACTION:
             self.refresh()
-        elif value == self.ADB_PATH_ACTION:
-            self.show_adb_tools()
+        elif value == self.TOOLS_ACTION:
+            self.show_connection_tools()
     def scan_if_needed(self):
         if (self.auto_connect and not self.runner and not self.busy
                 and not self.device.view().isVisible()
@@ -503,29 +521,40 @@ class FishingWindow(QtWidgets.QMainWindow):
         serial = self.device.currentData()
         if not any(device.serial == serial and device.state == 'device' for device in self.devices):
             self.set_text(self.detail,'請選擇已授權的手機。');return
-        if shutil.which('ffmpeg') is None:
-            self.set_text(self.headline,'連線未完成')
-            self.set_text(self.detail,'找不到 FFmpeg。加入 PATH 後重新開啟 tt tool。')
+        if not shutil.which(self.ffmpeg_path):
+            self.auto_connect = False
+            self.show_connection_failure('找不到 FFmpeg，請在連線工具中指定位置')
             return
         try:cfg=self.save()
         except (ValueError,OSError) as exc:self.set_text(self.detail,str(exc));return
         def work():
             adb=Adb(self.adb_path,serial)
-            try:return adb.capture(),adb.foreground()
+            try:return adb.capture()
             finally:adb.close()
-        def done(result):
-            frame,package=result;self.frame=frame.image
-            if frame.image.shape[0]<frame.image.shape[1]:self.pending_start=False;self.set_text(self.detail,'請將手機轉為直向。');return
+        def done(frame):
+            self.remember_connection_diagnostic('')
+            if frame.image.shape[0] < frame.image.shape[1]:
+                self.show_connection_failure('請將手機轉為直向。')
+                return
+            shape = frame.image.shape[:2]
             if self.mode in self.pending_profile_reset:
-                DeviceProfileStore().clear(serial,frame.image.shape[:2],self.mode,cfg['crop']);self.pending_profile_reset.discard(self.mode)
-            self.runner=(RuinsRunner if self.mode=='ruins' else PhoneRunner)(self.adb_path,serial,cfg,frame.image.shape[:2],package);self.runner.full_preview.set();self.runner.start();self.toggle_preview(self.preview.isChecked());self.set_connected(True);self.set_text(self.headline,'手機已連線');self.set_text(self.detail,'畫面已就緒，可以開始探險。' if self.mode=='ruins' else '畫面已就緒，可以開始釣魚。')
-            if self.pending_start:self.pending_start=False;self.runner.arm(False)
+                DeviceProfileStore().clear(serial, shape, self.mode, cfg['crop'])
+                self.pending_profile_reset.discard(self.mode)
+            runner_type = RuinsRunner if self.mode == 'ruins' else PhoneRunner
+            self.runner = runner_type(self.adb_path, serial, cfg, shape, ffmpeg=self.ffmpeg_path)
+            self.clear_preview('等待手機畫面')
+            self.runner.full_preview.set()
+            self.runner.start()
+            self.toggle_preview(self.preview.isChecked())
+            self.set_connected(True)
+            self.set_text(self.headline, '等待手機畫面')
+            self.set_text(self.detail, '等待第一張可用畫面')
         self.background(work,done)
     def toggle_fishing(self):
         if self.runner and self.runner.active.is_set():self.pause()
         else:self.start()
     def start(self):
-        if not self.runner or self.runner.active.is_set():return
+        if not self.runner or not self.runner.ready.is_set() or self.runner.active.is_set():return
         if self.runner.session_started.is_set():
             self.runner.arm(False);return
         try:cfg=self.save()
@@ -539,9 +568,15 @@ class FishingWindow(QtWidgets.QMainWindow):
     def disconnect(self):
         self.auto_connect=False;self.pending_start=False
         if self.runner:self.runner.close();self.runner=None
-        self.preview_message='已中斷連線';self.preview_label.clear();self.preview_label.setText(self.tr(self.preview_message))
-        if self.zoom_preview:self.zoom_preview.clear();self.zoom_preview.setText(self.tr(self.preview_message))
+        self.clear_preview('已中斷連線')
         self.set_connected(False);self.set_text(self.headline,'已中斷連線')
+    def clear_preview(self, message):
+        self.preview_message = message
+        for preview in (self.preview_label, self.zoom_preview):
+            if preview is not None:
+                preview.clear()
+                preview.setText(self.tr(message))
+
     def toggle_preview(self,checked):
         if self.runner:
             if checked:self.runner.preview.set()
@@ -601,38 +636,109 @@ class FishingWindow(QtWidgets.QMainWindow):
         content.addLayout(actions)
         dialog.finished.connect(dialog.deleteLater)
         dialog.open()
-    def show_adb_tools(self):
+    def remember_connection_diagnostic(self, detail):
+        self.connection_diagnostic = detail
+        self.detail.setToolTip('<pre>' + html.escape(detail) + '</pre>' if detail else '')
+
+    def show_connection_failure(self, error):
+        self.pending_start = False
+        self.set_text(self.headline, '連線未完成')
+        self.set_text(self.detail, error)
+        self.usb_help.hide()
+        self.connection_tools.show()
+
+    def show_connection_tools(self):
         if self.runner or self.busy:
             return
-        dialog, content = self.maintenance.panel('ADB 工具位置')
-        content.addWidget(self.label('ADB 是電腦與 Android 手機通訊的工具。一般會從系統自動找到。只有在已下載 Platform-Tools、但程式找不到 ADB 時，才需要指定檔案。'))
-        location = self.label(shutil.which(self.adb_path) or self.tr('目前找不到 ADB'), 'muted')
-        location.setTextFormat(QtCore.Qt.TextFormat.PlainText)
-        location.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
-        content.addWidget(location)
+        dialog, content = self.maintenance.panel('連線工具', width=min(660, self.screen().availableGeometry().width()-40))
+        content.addWidget(self.label('選擇已下載的執行檔，或從官方網站取得工具。'))
+        tools = (
+            ('adb_path', 'adb', 'ADB', 'https://developer.android.com/tools/releases/platform-tools'),
+            ('ffmpeg_path', 'ffmpeg', 'FFmpeg', 'https://ffmpeg.org/download.html#build-windows'),
+        )
+        for key, command, name, url in tools:
+            content.addWidget(self.label(name, 'heading'))
+            location = self.label('', 'muted')
+            location.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+            location.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+            content.addWidget(location)
+            self.update_tool_location(key, location)
+            row = QtWidgets.QHBoxLayout()
+            row.addWidget(self.button('下載', lambda link=url: QtGui.QDesktopServices.openUrl(QtCore.QUrl(link))))
+            row.addStretch()
+            row.addWidget(self.button('自動尋找', lambda k=key, c=command, label=location:
+                                      self.set_tool_path(k, c, label)))
+            row.addWidget(self.button('選擇執行檔…', lambda k=key, c=command, label=location:
+                                      self.browse_tool(dialog, k, c, label)))
+            content.addLayout(row)
+        if self.connection_diagnostic:
+            content.addWidget(self.label('串流診斷', 'heading'))
+            diagnostic = QtWidgets.QPlainTextEdit(self.connection_diagnostic, dialog)
+            diagnostic.setReadOnly(True)
+            diagnostic.setAccessibleName(self.tr('串流診斷'))
+            diagnostic.setFixedHeight(88)
+            content.addWidget(diagnostic)
+
+        def open_usb_guide():
+            dialog.accept()
+            self.show_usb_help()
+
         actions = QtWidgets.QHBoxLayout()
-        actions.addWidget(self.button('自動尋找', lambda: self.use_adb_path('adb', dialog)))
+        actions.addWidget(self.button('USB 連線教學', open_usb_guide))
         actions.addStretch()
-        actions.addWidget(self.button('選擇 ADB 執行檔…', lambda: self.browse(dialog), 'primary'))
+        actions.addWidget(self.button('關閉', dialog.reject))
+        actions.addWidget(self.button('檢查並重試', lambda: self.retry_connection(dialog), 'primary'))
         content.addLayout(actions)
         dialog.finished.connect(dialog.deleteLater)
         dialog.open()
-    def browse(self, dialog=None):
-        if self.runner or self.busy:return
-        resolved = shutil.which(self.adb_path)
+
+    def update_tool_location(self, key, location):
+        resolved = shutil.which(getattr(self, key))
+        location.setText(resolved or self.tr('找不到執行檔'))
+
+    def browse_tool(self, dialog, key, command, location):
+        resolved = shutil.which(getattr(self, key))
         start = (str(Path(resolved).parent) if resolved else
                  QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.DownloadLocation))
+        filename = command + '.exe'
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            dialog or self, self.tr('選擇 ADB 執行檔…'), start, 'ADB (adb.exe)',
+            dialog, self.tr('選擇執行檔…'), start, f'{command} ({filename})',
         )
-        if path and Path(path).name.casefold() == 'adb.exe' and Path(path).is_file():
-            self.use_adb_path(path, dialog)
-    def use_adb_path(self, path, dialog):
-        self.adb_path = path
-        self.save_ui_preference('adb_path', None if path == 'adb' else path)
-        if dialog is not None:
-            dialog.accept()
-        self.refresh()
+        if path and Path(path).name.casefold() == filename and Path(path).is_file():
+            self.set_tool_path(key, path, location)
+
+    def set_tool_path(self, key, path, location):
+        setattr(self, key, path)
+        self.save_ui_preference(key, None if path in ('adb', 'ffmpeg') else path)
+        self.update_tool_location(key, location)
+
+    def retry_connection(self, dialog):
+        executables = ((self.adb_path, 'adb', 'version'), (self.ffmpeg_path, 'FFmpeg', '-version'))
+        dialog.accept()
+        self.set_text(self.headline, '正在檢查連線工具')
+
+        def probe():
+            flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+            for path, name, argument in executables:
+                resolved = shutil.which(path)
+                try:
+                    if resolved is None:
+                        return name
+                    subprocess.run([resolved, argument], timeout=4, check=True, stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL, creationflags=flags)
+                except (OSError, subprocess.SubprocessError):
+                    return name
+            return None
+
+        def done(failed):
+            if failed:
+                self.show_connection_failure('無法啟動連線工具，請確認執行檔位置 · ' + failed)
+            else:
+                self.auto_connect = True
+                self.refresh()
+
+        self.background(probe, done)
+
     def show_status(self,status,state,reason):
         self._last_messages=(status,state,reason);self._rendering_status=True
         try:
@@ -645,17 +751,25 @@ class FishingWindow(QtWidgets.QMainWindow):
     def poll(self):
         while not self.q.empty():
             done,result,error=self.q.get();self.busy=False;self.connect_btn.setEnabled(not bool(self.runner))
-            if error:self.pending_start=False;self.set_text(self.headline,'連線未完成');self.set_text(self.detail,error)
+            if error:
+                self.show_connection_failure(error)
             else:
                 try:done(result)
-                except Exception as exc:self.set_text(self.detail,str(exc))
+                except (OSError, ValueError) as exc:self.show_connection_failure(str(exc))
         self.update_action_buttons()
         if not self.runner:return
         latest=None
         while not self.runner.messages.empty():latest=self.runner.messages.get_nowait()
         if not latest:return
+        if latest.get('diagnostic'):
+            self.remember_connection_diagnostic(latest['diagnostic'])
         if 'error' in latest:
-            error=latest['error'];self.disconnect();self.set_text(self.headline,'工作階段已停止');self.set_text(self.detail,error);return
+            self.disconnect()
+            self.show_connection_failure(latest['error'])
+            return
+        if self.pending_start and self.runner.ready.is_set():
+            self.pending_start = False
+            self.runner.arm(False)
         self.show_status(latest['status'],latest['state'],latest['reason'])
         if latest['image'] is not None and self.preview.isChecked():
             img=latest['image'];self.frame=img;qimg=QtGui.QImage(img.data,img.shape[1],img.shape[0],img.strides[0],QtGui.QImage.Format.Format_BGR888).copy()

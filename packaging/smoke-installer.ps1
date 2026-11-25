@@ -23,12 +23,7 @@ public static class SetupWindowShape {
     [StructLayout(LayoutKind.Sequential)]
     private struct Rect { public int Left, Top, Right, Bottom; }
     [StructLayout(LayoutKind.Sequential)]
-    private struct ScrollInfo {
-        public uint Size, Mask;
-        public int Min, Max;
-        public uint Page;
-        public int Position, TrackPosition;
-    }
+    private struct Point { public int X, Y; }
     [DllImport("gdi32.dll")]
     private static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
     [DllImport("gdi32.dll")]
@@ -48,7 +43,13 @@ public static class SetupWindowShape {
     [DllImport("user32.dll")]
     private static extern bool GetWindowRect(IntPtr window, out Rect bounds);
     [DllImport("user32.dll")]
-    private static extern bool GetScrollInfo(IntPtr window, int bar, ref ScrollInfo info);
+    private static extern bool GetClientRect(IntPtr window, out Rect bounds);
+    [DllImport("user32.dll")]
+    private static extern bool ClientToScreen(IntPtr window, ref Point position);
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr window);
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
+    private static extern int GetWindowLong(IntPtr window, int index);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetClassName(IntPtr window, StringBuilder name, int length);
     [DllImport("user32.dll")]
@@ -64,9 +65,11 @@ public static class SetupWindowShape {
     private static extern IntPtr QueryText(IntPtr window, uint message, IntPtr wParam, StringBuilder buffer,
         uint flags, uint timeout, out IntPtr value);
 
-    public static bool IsRounded(IntPtr window) {
+    public static bool HasNativeFrame(IntPtr window) {
+        const int wsCaption = 0x00c00000;
+        if ((GetWindowLong(window, -16) & wsCaption) != wsCaption) return false;
         var region = CreateRectRgn(0, 0, 0, 0);
-        try { return GetWindowRgn(window, region) == 3; }
+        try { return GetWindowRgn(window, region) == 0; }
         finally { DeleteObject(region); }
     }
 
@@ -110,34 +113,28 @@ public static class SetupWindowShape {
         return GetWindowRect(window, out Rect bounds) ? bounds.Bottom - bounds.Top : 0;
     }
 
-    public static bool IsAboveWithinParent(IntPtr viewer, IntPtr choice) {
-        IntPtr parent = GetParent(viewer);
-        return parent != IntPtr.Zero && parent == GetParent(choice) &&
-            GetWindowRect(parent, out Rect page) && GetWindowRect(viewer, out Rect text) &&
-            GetWindowRect(choice, out Rect button) &&
-            text.Top >= page.Top && text.Bottom <= button.Top && button.Bottom <= page.Bottom;
+    private static bool FitsInside(IntPtr window, Rect bounds, IntPtr topLevel) {
+        for (IntPtr parent = GetParent(window); parent != IntPtr.Zero; parent = GetParent(parent)) {
+            var origin = new Point();
+            if (!GetClientRect(parent, out Rect client) || !ClientToScreen(parent, ref origin)
+                || bounds.Left < origin.X || bounds.Top < origin.Y
+                || bounds.Right > origin.X + client.Right || bounds.Bottom > origin.Y + client.Bottom)
+                return false;
+            if (parent == topLevel) return true;
+        }
+        return false;
     }
 
-    private static int Count(IntPtr window, uint message) {
-        return Query(window, message, IntPtr.Zero, IntPtr.Zero, 2, 500, out IntPtr value) == IntPtr.Zero
-            ? -1 : value.ToInt32();
-    }
-
-    public static int TextLength(IntPtr window) { return Count(window, 0x000E); }
-    public static int LineCount(IntPtr window) { return Count(window, 0x00BA); }
-
-    public static bool CanScrollVertically(IntPtr window) {
-        var info = new ScrollInfo { Size = (uint)Marshal.SizeOf<ScrollInfo>(), Mask = 3 };
-        if (GetScrollInfo(window, 1, ref info) && info.Page > 0 && (long)info.Max - info.Min + 1 > info.Page)
-            return true;
-        // VCL styling can draw the scrollbar itself. Check the live viewport in that case.
-        int before = Count(window, 0x00CE);
-        if (before < 0) return false;
-        Query(window, 0x00B6, IntPtr.Zero, new IntPtr(1), 2, 500, out _);
-        int after = Count(window, 0x00CE);
-        if (after <= before) return false;
-        Query(window, 0x00B6, IntPtr.Zero, new IntPtr(before - after), 2, 500, out _);
-        return true;
+    public static bool FolderControlsFit(IntPtr wizard, IntPtr edit, IntPtr button) {
+        if (GetParent(edit) != GetParent(button)
+            || !GetWindowRect(edit, out Rect path) || !GetWindowRect(button, out Rect browse))
+            return false;
+        uint dpi = GetDpiForWindow(wizard);
+        int gap = browse.Left - path.Right;
+        return dpi > 0 && browse.Right - browse.Left >= 110 * dpi / 96
+            && browse.Bottom - browse.Top >= 32 * dpi / 96
+            && gap >= 8 * dpi / 96 && Math.Abs(path.Top + path.Bottom - browse.Top - browse.Bottom) <= 4
+            && FitsInside(edit, path, wizard) && FitsInside(button, browse, wizard);
     }
 
     public static string[] ComboChoices(IntPtr window) {
@@ -172,13 +169,11 @@ public static class SetupWindowShape {
 }
 '@
 
-$licenseViewerClass = '^(?:TRichEditViewer(?:/Text)?|RICHEDIT(?:20W|50W))$'
-$sourceLicense = Get-Content -Raw -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'LICENSE')
+$licensePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'LICENSE'
+$sourceLicense = Get-Content -Raw -LiteralPath $licensePath
 if ($sourceLicense -notmatch 'GNU GENERAL PUBLIC LICENSE\s+Version 3' -or $sourceLicense.Length -lt 30000) {
     throw 'The packaged source license must be the complete GNU GPL version 3'
 }
-$minimumLicenseText = [int](0.9 * ($sourceLicense -replace '\r', '').Length)
-$minimumLicenseLines = [int](0.8 * ($sourceLicense -split '\r?\n').Count)
 
 function Find-ChildByCaption([IntPtr] $Window, [string] $Caption, [switch] $Pattern, [switch] $Button) {
     foreach ($child in [SetupWindowShape]::VisibleChildren($Window)) {
@@ -197,14 +192,11 @@ function Write-ProbeWindows([Collections.Generic.HashSet[int]] $TestIds) {
         foreach ($handle in $windows) {
             $windowClass = [SetupWindowShape]::ClassName($handle)
             $caption = [SetupWindowShape]::Text($handle)
-            $rounded = [SetupWindowShape]::IsRounded($handle)
-            Write-Host "  $windowClass caption=[$caption] rounded=$rounded height=$([SetupWindowShape]::Height($handle))"
+            $nativeFrame = [SetupWindowShape]::HasNativeFrame($handle)
+            Write-Host "  $windowClass caption=[$caption] nativeFrame=$nativeFrame height=$([SetupWindowShape]::Height($handle))"
             foreach ($child in [SetupWindowShape]::VisibleChildren($handle)) {
                 $childClass = [SetupWindowShape]::ClassName($child)
-                if ($childClass -match 'RichEdit|Memo|Edit') {
-                    Write-Host "    $childClass height=$([SetupWindowShape]::Height($child)) textLength=$([SetupWindowShape]::TextLength($child)) lines=$([SetupWindowShape]::LineCount($child)) scrollable=$([SetupWindowShape]::CanScrollVertically($child))"
-                }
-                if ($childClass -notmatch 'Button|Radio|Static|Label') { continue }
+                if ($childClass -notmatch 'Button|Radio|Static|Label|Edit') { continue }
                 $childText = [SetupWindowShape]::Text($child) -replace '\s+', ' '
                 if ($childText.Length -gt 240) { $childText = $childText.Substring(0, 240) }
                 Write-Host "    $childClass [$childText] enabled=$([SetupWindowShape]::IsWindowEnabled($child))"
@@ -213,15 +205,16 @@ function Write-ProbeWindows([Collections.Generic.HashSet[int]] $TestIds) {
     }
 }
 
-function Test-RoundedWindow([string] $Application, [string[]] $Flags, [string] $WindowKind,
+function Test-InstallerWindow([string] $Application, [string[]] $Flags, [string] $WindowKind,
     [switch] $ExerciseSetup, [switch] $ExerciseRemoval, [string] $ConfirmInstallPath,
-    [Diagnostics.Process] $RunningApp, [switch] $DeclineClose) {
+    [Diagnostics.Process] $RunningApp, [switch] $DeclineClose, [string] $SetupLanguage = "en") {
     $probeLog = Join-Path $env:RUNNER_TEMP "tt-tool-interactive-$($WindowKind -replace ' ', '-').log"
     $Flags += ('/LOG="' + $probeLog + '"')
+    if ($ExerciseSetup -and $SetupLanguage -ne 'en') { $Flags += "/LANG=$SetupLanguage" }
     $process = Start-Process -FilePath $Application -ArgumentList $Flags -WindowStyle Normal -PassThru
     $testIds = [Collections.Generic.HashSet[int]]::new()
     $null = $testIds.Add($process.Id)
-    $step = 0
+    $step = if ($ExerciseSetup -and $SetupLanguage -ne 'en') { 1 } else { 0 }
     try {
         $deadline = [DateTime]::UtcNow.AddSeconds(25)
         do {
@@ -238,7 +231,7 @@ function Test-RoundedWindow([string] $Application, [string[]] $Flags, [string] $
                             if ($remove -eq [IntPtr]::Zero) { continue }
                             $pathField = Find-ChildByCaption $handle $ConfirmInstallPath
                             $dataToggle = Find-ChildByCaption $handle 'Also clear settings, calibration, and diagnostic logs'
-                            if (![SetupWindowShape]::IsRounded($handle) -or
+                            if (![SetupWindowShape]::HasNativeFrame($handle) -or
                                 $pathField -eq [IntPtr]::Zero -or $dataToggle -eq [IntPtr]::Zero) {
                                 throw 'The removal confirmation lacks its installed path or data option'
                             }
@@ -271,8 +264,8 @@ function Test-RoundedWindow([string] $Application, [string[]] $Flags, [string] $
                         $releases = Find-ChildByCaption $handle 'Open the latest stable release'
                         $close = Find-ChildByCaption $handle 'Close'
                         if ($releases -ne [IntPtr]::Zero -and $close -ne [IntPtr]::Zero) {
-                            if (![SetupWindowShape]::IsRounded($handle)) {
-                                throw 'Uninstall completion is missing its styled window'
+                            if (![SetupWindowShape]::HasNativeFrame($handle)) {
+                                throw 'Uninstall completion is missing its native caption and frame'
                             }
                             [SetupWindowShape]::Click($close)
                             if (!$process.WaitForExit(10000) -or $process.ExitCode -ne 0) {
@@ -284,8 +277,8 @@ function Test-RoundedWindow([string] $Application, [string[]] $Flags, [string] $
                         continue
                     }
                     if (!$ExerciseSetup) {
-                        if ([SetupWindowShape]::IsRounded($handle)) {
-                            Write-Host "Observed rounded $WindowKind window ($([SetupWindowShape]::Text($handle)))."
+                        if ([SetupWindowShape]::HasNativeFrame($handle)) {
+                            Write-Host "Observed native $WindowKind window ($([SetupWindowShape]::Text($handle)))."
                             return
                         }
                         continue
@@ -307,52 +300,25 @@ function Test-RoundedWindow([string] $Application, [string[]] $Flags, [string] $
                         continue
                     }
                     if ($step -eq 0 -or [SetupWindowShape]::ClassName($handle) -ne 'TWizardForm') { continue }
-                    if (![SetupWindowShape]::IsRounded($handle)) { continue }
-                    $next = Find-ChildByCaption $handle '^Next\s*[\p{P}\p{S}]*$' -Pattern
-                    if ($next -eq [IntPtr]::Zero) { continue }
+                    if (![SetupWindowShape]::HasNativeFrame($handle)) { continue }
                     if ($step -eq 1) {
-                        Write-Host "Observed rounded wizard, next caption [$([SetupWindowShape]::Text($next))]"
+                        $next = Find-ChildByCaption $handle '^(?:Next|下一步|次へ|다음)\s*(?:\(N\))?\s*>?$' -Pattern -Button
+                        if ($next -eq [IntPtr]::Zero) { continue }
                         [SetupWindowShape]::Click($next)
                         $step = 2
                         continue
                     }
                     if ($step -eq 2) {
-                        $accept = Find-ChildByCaption $handle 'I accept the agreement'
-                        if ($accept -eq [IntPtr]::Zero) { continue }
-                        $memo = [SetupWindowShape]::VisibleChildren($handle) |
-                            Where-Object { [SetupWindowShape]::ClassName($_) -match $licenseViewerClass } |
+                        $browse = Find-ChildByCaption $handle '^(?:Browse|瀏覽|参照|찾아보기)\s*(?:\(R\))?\s*(?:\.{3}|…)?$' -Pattern -Button
+                        if ($browse -eq [IntPtr]::Zero) { continue }
+                        $path = [SetupWindowShape]::VisibleChildren($handle) |
+                            Where-Object { [SetupWindowShape]::ClassName($_) -like '*PathEdit' } |
                             Select-Object -First 1
-                        if (!$memo) { throw 'License page has no visible RichEdit viewer' }
-                        $memoLength = [SetupWindowShape]::TextLength($memo)
-                        $memoLines = [SetupWindowShape]::LineCount($memo)
-                        $memoHeight = [SetupWindowShape]::Height($memo)
-                        if ($memoLength -lt $minimumLicenseText -and $memoLines -lt $minimumLicenseLines) {
-                            throw "License viewer contains an incomplete document (length=$memoLength, lines=$memoLines)"
+                        if (!$path -or ![SetupWindowShape]::FolderControlsFit($handle, $path, $browse)) {
+                            throw "The $SetupLanguage folder field or Browse button is clipped or misaligned"
                         }
-                        if (![SetupWindowShape]::CanScrollVertically($memo)) {
-                            throw "License viewer does not scroll (length=$memoLength, lines=$memoLines)"
-                        }
-                        if ($memoHeight -lt 150 -or ![SetupWindowShape]::IsAboveWithinParent($memo, $accept)) {
-                            throw "License viewer geometry is clipped or undersized (height=$memoHeight)"
-                        }
-                        if (![SetupWindowShape]::IsWindowEnabled($accept) -or [SetupWindowShape]::IsWindowEnabled($next)) {
-                            throw 'License initial acceptance gate is invalid'
-                        }
-                        [SetupWindowShape]::Click($accept)
-                        $step = 3
-                        continue
-                    }
-                    if ($step -eq 3 -and [SetupWindowShape]::IsWindowEnabled($next)) {
-                        [SetupWindowShape]::Click($next)
-                        $step = 4
-                        continue
-                    }
-                    if ($step -eq 4) {
-                        $browse = Find-ChildByCaption $handle '^Browse\s*(?:\.{3}|…)?$' -Pattern
-                        if ($browse -ne [IntPtr]::Zero) {
-                            Write-Host 'Verified expanded GPL license text, default decline, and acceptance entering the folder page'
-                            return
-                        }
+                        Write-Host "Verified $SetupLanguage folder controls fit and are reachable directly from Welcome"
+                        return
                     }
                 }
             }
@@ -406,13 +372,21 @@ $flags = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', ('/LOG="' + $log + 
 $flags += ('/DIR="' + $target + '"')
 $setupProbeFailure = $null
 try {
-    Test-RoundedWindow $setup @('/NORESTART') 'setup' -ExerciseSetup
+    foreach ($language in @('en', 'zh_TW', 'ja', 'ko')) {
+        Test-InstallerWindow $setup @('/NORESTART') "setup-$language" -ExerciseSetup -SetupLanguage $language
+    }
 }
 catch {
     $setupProbeFailure = $_
     Write-Warning "Interactive setup verification failed; continuing other smoke checks: $($_.Exception.Message)"
 }
 Invoke-Setup $setup ($flags + '/LANG=ko')
+$installedLicense = Join-Path $target 'LICENSE'
+if (!(Test-Path -LiteralPath $installedLicense -PathType Leaf) -or
+        (Get-FileHash -LiteralPath $installedLicense).Hash -cne (Get-FileHash -LiteralPath $licensePath).Hash) {
+    throw 'Setup did not ship the complete and unmodified GNU GPL license'
+}
+Write-Host 'Verified the installed GNU GPL license matches the source'
 $uninstallRegistry = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{74A2509B-977F-47DC-8C34-409B3CB77523}_is1'
 if ((Get-ItemPropertyValue -LiteralPath $uninstallRegistry -Name Publisher) -ne '71') {
     throw 'Installed-app publisher is not 71'
@@ -441,7 +415,7 @@ if actual is None or not actual.samefile(expected):
 '@
 & $installedPython -I -B -c $checkUninstaller $uninstaller
 if ($LASTEXITCODE -ne 0) { throw 'Installed app could not resolve its registered uninstaller' }
-Test-RoundedWindow $uninstaller @('/SILENT', '/NORESTART', '/TTTOOLPROMPT') 'uninstall confirmation'
+Test-InstallerWindow $uninstaller @('/SILENT', '/NORESTART', '/TTTOOLPROMPT') 'uninstall confirmation'
 
 function Test-ShortcutLaunch([string] $LinkPath, [string] $ExpectedTitle) {
     # ShellExecute follows the real Windows shortcut, including its Unicode path.
@@ -546,9 +520,9 @@ try {
         throw 'The deployed app could not start before uninstall verification'
     }
     $uninstallFlags = @('/SILENT', '/NORESTART', '/TTTOOLPROMPT')
-    Test-RoundedWindow $uninstaller $uninstallFlags 'decline closing running app' `
+    Test-InstallerWindow $uninstaller $uninstallFlags 'decline closing running app' `
         -ExerciseRemoval -ConfirmInstallPath $target -RunningApp $runningApp -DeclineClose
-    Test-RoundedWindow $uninstaller $uninstallFlags 'uninstall completion' `
+    Test-InstallerWindow $uninstaller $uninstallFlags 'uninstall completion' `
         -ExerciseRemoval -ConfirmInstallPath $target -RunningApp $runningApp
 }
 finally {

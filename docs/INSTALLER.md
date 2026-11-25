@@ -5,12 +5,12 @@ Download [tt-tool-1.3.0-windows-x64-setup.exe](https://github.com/Estrella-071/t
 ## Install and open tt tool
 
 1. Start Setup and select English, 繁體中文, 日本語 or 한국어. The app uses this language on its first launch.
-2. Review the GPL license on its own scrollable page. The Setup interface supports all four languages.
+2. The installer includes the full GPL license in the installation folder. Current source builds also provide **Maintenance → View license**.
 3. On a first install you can change the folder. By default, Setup installs for the current user under `%LOCALAPPDATA%\Programs\tt tool`.
 4. Choose which shortcuts to create. The Start menu shortcut is selected by default. The desktop shortcut is off by default.
 5. On the final screen, select the launch option if you want to open tt tool when Setup finishes. You can also use a shortcut later. An installation folder shortcut named **tt tool** is available even when both external shortcuts are off.
 
-Add the folders containing `adb.exe` and `ffmpeg.exe` to the user `Path` and reopen tt tool. For a custom ADB installation, choose **ADB tool location…** in the device menu. Use the app's **USB connection guide** or the [manufacturer reference](USB-DEBUGGING.md) to prepare the phone. The phone's Android build must support `screenrecord --time-limit 0`.
+tt tool looks for `adb.exe` and `ffmpeg.exe` on your user `Path`. In the current source build, open **Connection tools** from the device menu to choose either executable directly and select **Check and retry**. The v1.3.0 installer provides the older **ADB tool location…** command. Use the app's **USB connection guide** or the [manufacturer reference](USB-DEBUGGING.md) to prepare the phone. The phone's Android build must support `screenrecord --time-limit 0`.
 
 ## Update tt tool
 

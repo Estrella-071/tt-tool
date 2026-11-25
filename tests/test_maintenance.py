@@ -50,8 +50,19 @@ class MaintenanceTests(unittest.TestCase):
             window.set_language(locale, persist=False)
             menu = window.maintenance.menu(window.maintenance_button)
             self.assertEqual([action.text() for action in menu.actions()],
-                             [window.tr(text) for text in ("檢查更新", "開啟檔案位置", "開啟設定資料夾")])
+                             [window.tr(text) for text in ("檢查更新", "開啟檔案位置", "開啟設定資料夾", "查看授權")])
             menu.deleteLater()
+
+    def test_packaged_license_opens_read_only_on_request(self):
+        window = FishingWindow()
+        self.addCleanup(window.deleteLater)
+        window.maintenance.show_license()
+        dialog = window.findChild(QtWidgets.QDialog)
+        text = dialog.findChild(QtWidgets.QPlainTextEdit)
+        self.assertTrue(text.isReadOnly())
+        self.assertIn("GNU GENERAL PUBLIC LICENSE", text.toPlainText())
+        self.assertIn("END OF TERMS AND CONDITIONS", text.toPlainText())
+        dialog.accept()
 
     def test_update_uses_published_version_and_offers_release_page(self):
         window = FishingWindow()

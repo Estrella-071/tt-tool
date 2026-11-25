@@ -9,6 +9,7 @@ from unittest.mock import patch, Mock
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 from PySide6 import QtCore, QtGui, QtWidgets, QtTest
 from qt_fishing import FishingWindow, PhonePreview, traditional_text
+from fisher.adb import Device
 from adb_app import PHONE_DEFAULTS
 import numpy as np
 
@@ -62,6 +63,54 @@ class QtLayoutTests(unittest.TestCase):
         self.assertEqual(self.w.zoom_preview.image.size(),image.size())
         self.w.zoom_dialog.close();self.app.processEvents()
         self.assertIsNone(self.w.zoom_dialog)
+    def test_connection_waits_for_stream_and_does_not_bind_to_launcher(self):
+        self.w.selected_device = 'fixture'
+        self.w.devices = [Device('fixture', 'device')]
+        self.w.update_device_items()
+        self.w.ffmpeg_path = 'custom-ffmpeg'
+        self.w.pending_start = True
+        with patch('qt_fishing.Adb') as adb, patch('qt_fishing.PhoneRunner') as factory, \
+                patch('qt_fishing.shutil.which', return_value='custom-ffmpeg'), \
+                patch.object(self.w, 'background', side_effect=lambda work, done: done(work())):
+            adb.return_value.capture.return_value = Mock(image=np.zeros((800, 360, 3), dtype=np.uint8))
+            runner = factory.return_value
+            runner.ready.is_set.return_value = False
+            runner.active.is_set.return_value = False
+            runner.session_started.is_set.return_value = False
+            self.w.connect_device()
+            adb.return_value.foreground.assert_not_called()
+            self.assertEqual(factory.call_args.args[3:], ((800, 360),))
+            self.assertEqual(factory.call_args.kwargs, {'ffmpeg': 'custom-ffmpeg'})
+            self.assertFalse(self.w.start_btn.isEnabled())
+            self.assertEqual(self.w.headline.text(), self.w.tr('等待手機畫面'))
+            runner.arm.assert_not_called()
+            runner.messages.empty.side_effect = [False, True]
+            runner.messages.get_nowait.return_value = {
+                'status': '畫面已就緒，可以開始釣魚。', 'state': '', 'reason': '', 'image': None,
+                'fps': 0, 'age_ms': 0, 'casts': 0, 'results': 0,
+            }
+            runner.ready.is_set.return_value = True
+            self.w.poll()
+            runner.arm.assert_called_once_with(False)
+            self.assertTrue(self.w.start_btn.isEnabled())
+            self.w.runner = None
+
+    def test_connection_tools_apply_ffmpeg_path_without_reopening(self):
+        path = Path(self.temp.name) / 'ffmpeg.exe'
+        path.touch()
+        label = self.w.label('')
+        self.w.set_tool_path('ffmpeg_path', str(path), label)
+        self.assertEqual(self.w.ffmpeg_path, str(path))
+        saved = json.loads(self.w.language_path.read_text(encoding='utf-8'))
+        self.assertEqual(saved['ffmpeg_path'], str(path))
+        with patch('qt_fishing.shutil.which', side_effect=['adb.exe', str(path)]), \
+                patch('qt_fishing.subprocess.run') as probe, patch.object(self.w, 'refresh') as refresh, \
+                patch.object(self.w, 'background', side_effect=lambda work, done: done(work())):
+            self.w.retry_connection(Mock())
+            self.assertEqual([call.args[0] for call in probe.call_args_list],
+                             [['adb.exe', 'version'], [str(path), '-version']])
+            refresh.assert_called_once_with()
+
     def test_start_arms_fishing_not_observation(self):
         runner=Mock();runner.active.is_set.return_value=False;runner.session_started.is_set.return_value=False;runner.settings=self.w.settings();self.w.runner=runner
         with patch.object(self.w,'save',return_value=runner.settings):self.w.start()

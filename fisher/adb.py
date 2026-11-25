@@ -311,20 +311,54 @@ class MotionGate:
     def fresh(self, now):
         return self.confirmed >= 2 and self.last_move is not None and now-self.last_move <= .35
 
-class StreamCapture(LatestCapture):
-    """Continuous AVC stream; raw frames drained immediately into one latest slot.
+class StreamFailure(str):
+    """Keep snapshot errors string-compatible while exposing recovery details."""
 
-    Receive times are host times, NOT device presentation timestamps. The configured
-    stream delay is an estimate; it must be calibrated on the actual phone.
-    """
-    def __init__(self, adb, physical_shape, stream_delay=.06, uncertainty=.012):
+    def __new__(cls, message, diagnostic="", retry=True):
+        value = super().__new__(cls, f"{message}: {diagnostic}" if diagnostic else message)
+        value.message = message
+        value.diagnostic = diagnostic
+        value.retry = retry
+        return value
+
+
+class _ProcessDiagnostics:
+    def __init__(self, pipe, name):
+        self.name = name
+        self.chunks = deque(maxlen=4)
+        self.lock = threading.Lock()
+        self.thread = threading.Thread(target=self._read, args=(pipe,),
+                                       name=name + "-stderr", daemon=True)
+        self.thread.start()
+
+    def _read(self, pipe):
+        try:
+            with pipe:
+                while chunk := pipe.read1(1024):
+                    with self.lock:
+                        self.chunks.append(chunk)
+        except OSError:
+            pass
+
+    def text(self):
+        with self.lock:
+            data = b"".join(self.chunks)
+        return " ".join(data.decode("utf-8", "replace").split())
+
+
+class StreamCapture(LatestCapture):
+    """Continuous AVC stream, with one frame slot and bounded process diagnostics."""
+
+    def __init__(self, adb, physical_shape, stream_delay=.06, uncertainty=.012, *, ffmpeg="ffmpeg"):
         super().__init__(adb)
         self.width = 360
         self.height = int(round(physical_shape[0] / physical_shape[1] * self.width / 2) * 2)
         self.delay = stream_delay
         self.uncertainty = uncertainty
+        self.ffmpeg = ffmpeg
         self.processes = []
-        self.ready_at = None
+        self._process_lock = threading.Lock()
+        self._diagnostics = []
         self.frame_times = deque(maxlen=120)
 
     def fps(self, now=None):
@@ -337,74 +371,113 @@ class StreamCapture(LatestCapture):
 
     def close(self):
         self.stop.set()
-        for p in tuple(self.processes):
-            if p.poll() is None:
-                p.kill()
+        with self._process_lock:
+            for process in self.processes:
+                if process.poll() is None:
+                    process.kill()
+
+    def _spawn(self, name, command, stdin=subprocess.DEVNULL):
+        with self._process_lock:
+            if self.stop.is_set():
+                return None
+            process = subprocess.Popen(command, stdin=stdin, stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE,
+                                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            self.processes.append(process)
+            self._diagnostics.append(_ProcessDiagnostics(process.stderr, name))
+            return process
+
+    def failure(self, message, io_error=""):
+        with self._process_lock:
+            diagnostics = tuple(self._diagnostics)
+        outputs = {item.name: item.text() for item in diagnostics}
+        if io_error:
+            outputs["I/O"] = io_error
+        source = outputs.get("ADB", "").casefold()
+        decoder = outputs.get("FFmpeg", "").casefold()
+        serial = getattr(self.adb, "serial", None)
+        if serial:
+            outputs = {name: output.replace(serial, "[device]") for name, output in outputs.items()}
+        details = " · ".join(f"{name}: {output[-400:]}" for name, output in outputs.items() if output)
+        if any(marker in source for marker in ("outside acceptable range", "unrecognized option",
+                                              "unknown option", "invalid output format",
+                                              "screenrecord: not found", "screenrecord: inaccessible")):
+            return StreamFailure("手機不支援目前的錄影方式，請檢查 Android／ADB 版本", details, retry=False)
+        if any(marker in decoder for marker in ("unrecognized option", "unknown decoder",
+                                               "decoder not found", "encoder not found",
+                                               "unknown input format", "unknown output format",
+                                               "requested output format 'rawvideo' is not known")):
+            return StreamFailure("FFmpeg 無法解碼手機畫面，請更新 FFmpeg", details, retry=False)
+        return StreamFailure(message, details)
+
+    def _read_frames(self, pipe):
+        size, sequence = self.width*self.height*3, 0
+        started = previous = time.perf_counter()
+        while not self.stop.is_set():
+            data = pipe.read(size)
+            if self.stop.is_set() or len(data) != size:
+                break
+            received = time.perf_counter()
+            # Discard startup buffering; never publish a burst as fresh motion.
+            if received-started < .8:
+                continue
+            sequence += 1
+            image = np.frombuffer(data, np.uint8).reshape(self.height, self.width, 3)
+            frame = Frame(image, received-self.delay, received, received-previous, sequence, self.uncertainty)
+            previous = received
+            with self._lock:
+                self.latest, self.error = frame, None
+                self.frame_times.append(received)
+                self.available.set()
 
     def _run(self):
         if self.stop.is_set():
             return
-        ffmpeg = shutil.which("ffmpeg")
+        ffmpeg = shutil.which(self.ffmpeg)
         if not ffmpeg:
-            with self._lock:
-                self.error = "找不到 FFmpeg；請安裝 FFmpeg 並加入 PATH 後重新連線"
+            self._publish_failure(StreamFailure("找不到 FFmpeg，請在連線工具中指定位置", retry=False))
             return
-        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        failure = None
+        io_error = ""
         try:
-            source = subprocess.Popen([self.adb.executable, "-s", self.adb.serial, "exec-out",
+            # Keep exec-out's binary-safe stdout for the encoded video.
+            source = self._spawn("ADB", [self.adb.executable, "-s", self.adb.serial, "exec-out",
                 "screenrecord", "--output-format=h264", "--size", f"{self.width}x{self.height}",
-                "--bit-rate", "1500000", "--time-limit", "0", "-"],
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, creationflags=flags)
-            self.processes.append(source)
-            if self.stop.is_set():
+                "--bit-rate", "1500000", "--time-limit", "0", "-"])
+            if source is None:
                 return
-            decoder = subprocess.Popen([ffmpeg, "-loglevel", "error", "-probesize", "32",
+            decoder = self._spawn("FFmpeg", [ffmpeg, "-loglevel", "error", "-probesize", "32",
                 "-analyzeduration", "0", "-flags", "low_delay", "-threads", "1", "-f", "h264",
                 "-i", "pipe:0", "-an", "-f", "rawvideo", "-pix_fmt", "bgr24",
-                "-fps_mode", "passthrough", "pipe:1"], stdin=source.stdout,
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, creationflags=flags)
-            self.processes.append(decoder)
-            if self.stop.is_set():
+                "-fps_mode", "passthrough", "pipe:1"], stdin=source.stdout)
+            if decoder is None:
                 return
             source.stdout.close()
-            size, sequence = self.width*self.height*3, 0
-            started = previous = time.perf_counter()
-            while not self.stop.is_set():
-                data = bytearray()
-                while len(data) < size and not self.stop.is_set():
-                    part = decoder.stdout.read(size-len(data))
-                    if not part:
-                        raise AdbError("影像串流結束；請重新連線")
-                    data.extend(part)
-                if self.stop.is_set():
-                    break
-                received = time.perf_counter()
-                # Discard startup buffering; never publish a burst as fresh motion.
-                if received-started < .8:
-                    continue
-                sequence += 1
-                image = np.frombuffer(data, np.uint8).reshape(self.height, self.width, 3)
-                frame = Frame(image, received-self.delay, received, received-previous, sequence, self.uncertainty)
-                previous = received
-                with self._lock:
-                    self.latest, self.error = frame, None
-                    self.frame_times.append(received)
-                    self.available.set()
-        except (OSError, ValueError) as exc:
-            if not self.stop.is_set():
-                with self._lock:
-                    self.error = str(exc)
-                    self.available.set()
+        except OSError as exc:
+            failure = StreamFailure("無法啟動連線工具，請確認執行檔位置", str(exc), retry=False)
+        else:
+            try:
+                self._read_frames(decoder.stdout)
+            except (OSError, ValueError) as exc:
+                io_error = str(exc)
         finally:
+            interrupted = self.stop.is_set()
             self.close()
-            for p in self.processes:
+            for process, diagnostic in zip(self.processes, self._diagnostics):
                 try:
-                    p.wait(timeout=2)
+                    process.wait(timeout=2)
                 except subprocess.TimeoutExpired:
-                    p.kill()
-                for pipe in (p.stdin, p.stdout, p.stderr):
-                    if pipe:
-                        pipe.close()
+                    process.kill()
+                diagnostic.thread.join(timeout=.2)
+                if process.stdout is not None:
+                    process.stdout.close()
+            if not interrupted:
+                self._publish_failure(failure or self.failure("影像串流結束，正在等待恢復", io_error))
+
+    def _publish_failure(self, failure):
+        with self._lock:
+            self.error = failure
+            self.available.set()
 
 
 class ForegroundMonitor:

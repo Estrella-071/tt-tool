@@ -7,12 +7,15 @@ import random
 import threading
 import time
 import cv2
-from .adb import Adb, StreamCapture, MotionGate, ForegroundMonitor, crop_frame, validate_phone_settings
+from .adb import Adb, StreamCapture, StreamFailure, MotionGate, ForegroundMonitor, crop_frame, validate_phone_settings
 from .config import DEFAULTS, ROOT
 from .device_profiles import DeviceProfileStore
 from .controller import Controller, Decision
 from .vision import annotate, LABELS
 from .phone_vision import PhoneDetector
+
+
+CLASH_PACKAGE = "com.farlightgames.pgame.gp"
 
 
 def preview_frame(enabled, full, frame, display, obs, prediction):
@@ -125,19 +128,20 @@ class ObservationHold:
 
 
 class PhoneRunner:
-    def __init__(self, executable, serial, settings, initial_shape, package):
+    def __init__(self, executable, serial, settings, initial_shape, package=CLASH_PACKAGE, *, ffmpeg="ffmpeg"):
         self.settings = validate_phone_settings(settings)
         self.adb = Adb(executable, serial)
         self.shape = tuple(initial_shape)
         self.package = package
-        self.capture = StreamCapture(self.adb, initial_shape, settings.get("stream_delay_ms", 60)/1000,
-                                     settings.get("timing_uncertainty_ms", 12)/1000)
+        self.ffmpeg = ffmpeg
+        self.capture = self._create_capture()
         self.foreground_at = 0.
         self.foreground_ok = False
         self.foreground_recovered = threading.Event()
         self.foreground_note = "等待前景驗證"
         self.guard_thread = threading.Thread(target=self._guard, name="phone-foreground", daemon=True)
         self.stop = threading.Event()
+        self.ready = threading.Event()
         self.active = threading.Event()
         self.session_started = threading.Event()
         self.paused_at = None
@@ -151,7 +155,7 @@ class PhoneRunner:
         self.gate = MotionGate()
         self.recovery = PhoneRecovery()
         self.pending = None
-        self.status = "手機已連線"
+        self.status = "等待手機畫面"
         self.capture_times = deque(maxlen=30)
         self.action_ms = None
         self.action_point = None
@@ -160,6 +164,33 @@ class PhoneRunner:
         self.last_package_check = 0
         self.controller = None
         self.rng = random.Random()
+
+    def _create_capture(self):
+        return StreamCapture(self.adb, self.shape, self.settings["stream_delay_ms"]/1000,
+                             self.settings["timing_uncertainty_ms"]/1000, ffmpeg=self.ffmpeg)
+
+    def _stream_failure(self, frame, error, started, now):
+        if error:
+            return error if isinstance(error, StreamFailure) else StreamFailure(str(error))
+        if frame is None and now-started > 6:
+            return self.capture.failure("等待第一張可用畫面")
+        if frame is not None and now-frame.received_at > 3:
+            return self.capture.failure("手機畫面沒有更新")
+        return None
+
+    def _usable_frame(self, now, ready_message, active_message):
+        self.ready.set()
+        reconnecting = self.status.startswith("影像串流中斷")
+        starting = self.status in ("等待手機畫面", "等待遊戲進入前景", ready_message)
+        if self.active.is_set():
+            if reconnecting:
+                self.status = active_message
+        elif starting or reconnecting:
+            self.status = ready_message if self.foreground_ready(now) else "等待遊戲進入前景"
+
+    def _fatal_stream(self, failure):
+        self._pause(failure.message)
+        self.emit({"error": failure.message, "diagnostic": failure.diagnostic, "fatal": True})
 
     def emit(self, data):
         try:
@@ -203,6 +234,7 @@ class PhoneRunner:
     def close(self):
         self.active.clear()
         self.stop.set()
+        self.ready.clear()
         self.capture.stop.set()
         self.capture.close()
         self.adb.close()
@@ -437,8 +469,12 @@ class PhoneRunner:
                 now = time.perf_counter()
                 if self.active.is_set() and not self.foreground_ready(now):
                     observation_hold.begin(now)
-                stream_failed = error or (frame is None and now-started > 6) or (frame and now-frame.received_at > 3)
-                if stream_failed:
+                failure = self._stream_failure(frame, error, started, now)
+                if failure:
+                    self.ready.clear()
+                    if not failure.retry:
+                        self._fatal_stream(failure)
+                        break
                     self.pending = None
                     self.gate.reset()
                     self.recovery.reset()
@@ -449,7 +485,7 @@ class PhoneRunner:
                         continue
                     reconnect_attempts += 1
                     self.status = f"影像串流中斷，正在重連（第 {reconnect_attempts} 次）"
-                    self.emit({"status": self.status, "state": "連線中斷", "reason": "等待手機重新連線",
+                    self.emit({"status": self.status, "state": "連線中斷", "reason": failure.message, "diagnostic": failure.diagnostic,
                                "active": self.active.is_set(), "casts": controller.cast_count,
                                "results": controller.result_count, "fps": 0, "capture_ms": 0,
                                "action_ms": self.action_ms, "age_ms": 0, "image": None})
@@ -461,11 +497,11 @@ class PhoneRunner:
                         self._pause("舊影像串流無法停止，請重新連線")
                         self.emit({"error": self.status, "fatal": True})
                         break
-                    self.capture = StreamCapture(self.adb, self.shape,
-                        self.settings.get("stream_delay_ms", 60)/1000,
-                        self.settings.get("timing_uncertainty_ms", 12)/1000)
+                    self.capture = self._create_capture()
                     self.capture.start()
                     sequence, last_frame, obs, display = 0, None, None, None
+                    last_ui_sequence = -1
+                    self.capture_times.clear()
                     started = time.perf_counter()
                     next_reconnect = started + min(2 ** min(reconnect_attempts, 4), 10)
                     continue
@@ -494,6 +530,8 @@ class PhoneRunner:
                         controller.phase = type(controller.phase)(cfg, controller.latency, controller.speed)
                     raw, box = crop_frame(frame.image, self.settings["crop"])
                     obs, display = detector.detect(raw)
+                    active_message = "觀察測試中 · 不點擊" if self.observe_only else "自動釣魚中"
+                    self._usable_frame(now, "畫面已就緒，可以開始釣魚。", active_message)
                     alignment = getattr(detector, 'alignment', None)
                     if (getattr(detector, 'alignment_ready', False)
                             and isinstance(alignment, tuple) and len(alignment) == 2):
@@ -608,6 +646,7 @@ class PhoneRunner:
             self.emit({"error": "工作階段停止：" + str(exc), "fatal": True})
         finally:
             self.active.clear()
+            self.ready.clear()
             self.capture.close()
             self.adb.close()
             self.capture.thread.join(timeout=4)

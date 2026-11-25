@@ -81,6 +81,7 @@ class Maintenance(QtCore.QObject):
         check.setEnabled(self.reply is None and self.download is None)
         menu.addAction(tr("開啟檔案位置"), self.open_app_folder)
         menu.addAction(tr("開啟設定資料夾"), self.open_data_folder)
+        menu.addAction(tr("查看授權"), self.show_license)
         if uninstall_program(self.install_root) is not None:
             menu.addSeparator()
             menu.addAction(tr("解除安裝…"), self.uninstall)
@@ -284,6 +285,26 @@ class Maintenance(QtCore.QObject):
             return None
         return [pid, created, str(file.installer), file.asset.sha256, self.window.tr("無法安裝更新"),
                 self.window.tr("更新未完成。你可以從發布頁下載安裝程式重試。")]
+
+    def show_license(self):
+        root = self.install_root if self.install_root is not None else ROOT
+        try:
+            license_text = (root / "LICENSE").read_text(encoding="utf-8")
+        except OSError:
+            self.dialog("查看授權", "找不到授權檔案。")
+            return
+        dialog, content = self.panel("查看授權", width=min(680, self.window.screen().availableGeometry().width()-40))
+        text = QtWidgets.QPlainTextEdit(license_text, dialog)
+        text.setReadOnly(True)
+        text.setAccessibleName(self.window.tr("查看授權"))
+        text.setMinimumHeight(min(380, self.window.screen().availableGeometry().height()-170))
+        content.addWidget(text)
+        actions = QtWidgets.QHBoxLayout()
+        actions.addStretch()
+        actions.addWidget(self.window.button("關閉", dialog.accept, "primary"))
+        content.addLayout(actions)
+        dialog.finished.connect(dialog.deleteLater)
+        dialog.open()
 
     def open_app_folder(self):
         self.open_folder(self.install_root if self.install_root is not None else ROOT)

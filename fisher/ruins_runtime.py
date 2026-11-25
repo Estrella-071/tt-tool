@@ -3,7 +3,7 @@
 from collections import deque
 import time
 import cv2
-from .adb import StreamCapture, crop_frame
+from .adb import crop_frame
 from .phone_runtime import PhoneRunner
 from .ruins import RuinsController, RuinsDetector
 from .ruins_diagnostics import BossDiagnostics
@@ -94,13 +94,17 @@ class RuinsRunner(PhoneRunner):
                         last_ui_sequence = -1
                 frame, error = self.capture.snapshot()
                 now = time.perf_counter()
-                failed = error or (frame is None and now-started > 6) or (frame is not None and now-frame.received_at > 3)
-                if failed:
+                failure = self._stream_failure(frame, error, started, now)
+                if failure:
+                    self.ready.clear()
+                    if not failure.retry:
+                        self._fatal_stream(failure)
+                        break
                     if now < retry_at:
                         self.stop.wait(min(.1, retry_at-now)); continue
                     attempts += 1
                     self.status = f'影像串流中斷，正在重連（第 {attempts} 次）'
-                    self.emit({'status': self.status, 'state': '連線中斷', 'reason': '等待手機重新連線',
+                    self.emit({'status': self.status, 'state': '連線中斷', 'reason': failure.message, 'diagnostic': failure.diagnostic,
                                'casts': controller.started, 'results': controller.completed,
                                'active': self.active.is_set(), 'fps': 0., 'capture_fps': 0.,
                                'age_ms': 0., 'image': None})
@@ -109,11 +113,11 @@ class RuinsRunner(PhoneRunner):
                     if self.capture.thread.is_alive():
                         self._pause('舊影像串流無法停止，請重新連線')
                         self.emit({'error': self.status, 'fatal': True}); break
-                    self.capture = StreamCapture(self.adb, self.shape,
-                        self.settings.get('stream_delay_ms', 60)/1000,
-                        self.settings.get('timing_uncertainty_ms', 12)/1000)
+                    self.capture = self._create_capture()
                     self.capture.start()
                     sequence = 0; last_frame = obs = None
+                    last_ui_sequence = -1
+                    times.clear()
                     controller.clear_observation()
                     started = time.perf_counter()
                     retry_at = started + min(2 ** min(attempts, 4), 10)
@@ -131,6 +135,8 @@ class RuinsRunner(PhoneRunner):
                     last_scan = now
                     raw, box = crop_frame(frame.image, self.settings['crop'])
                     obs = detector.detect(raw)
+                    active_message = '觀察測試中 · 不點擊' if self.observe_only else '自動探險中'
+                    self._usable_frame(now, '畫面已就緒，可以開始探險。', active_message)
                     crop_offset = (detector.geometry.offset[0]*detector.viewport[1],detector.geometry.offset[1])
                     if (profiles is not None and detector.geometry.ready and now-last_profile_write >= 15
                             and max(abs(a-b) for a,b in zip(crop_offset,last_saved_offset)) >= .001):
@@ -191,7 +197,7 @@ class RuinsRunner(PhoneRunner):
         except Exception as exc:
             self._pause(str(exc)); self.emit({'error': '探險工作階段停止：' + str(exc), 'fatal': True})
         finally:
-            self.active.clear(); self.capture.close(); self.adb.close()
+            self.active.clear(); self.ready.clear(); self.capture.close(); self.adb.close()
             self.capture.thread.join(timeout=4)
 
     def _ruins_tap(self, controller, action, frame, box, chance=None, offset=None, viewport=None, target=None):

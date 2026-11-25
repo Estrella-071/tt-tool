@@ -3,34 +3,18 @@ const
   ShellColor = $00EEE6E9;
   CardColor = $00FAF7F9;
   HeaderColor = $00402B30;
-  AccentColor = $00874E5F;
   InkColor = $00402B30;
   MutedColor = $00705A62;
-  FocusColor = $00AF728E;
-  ButtonColor = $00EFE9EE;
-  PressedColor = $006A394D;
+  DwmCornerPreference = 33;
+  DwmCaptionColor = 35;
+  DwmTextColor = 36;
+  DwmRound = 2;
   WmPaint = $000F;
   WmQuit = $0012;
-  WmEnable = $000A;
-  WmSetText = $000C;
-  WmSetFocus = $0007;
-  WmKillFocus = $0008;
   WmNcDestroy = $0082;
   WmWindowPosChanging = $0046;
   WmWindowPosChanged = $0047;
   WmTimer = $0113;
-  WmNcLeftDown = $00A1;
-  WmLeftDown = $0201;
-  WmLeftUp = $0202;
-  WmMouseMove = $0200;
-  WmMouseLeave = $02A3;
-  WmKeyDown = $0100;
-  WmKeyUp = $0101;
-  BmGetState = $00F2;
-  BstPushed = $04;
-  BstHot = $0200;
-  HtCaption = 2;
-  WindowCopy = $00CC0020;
   FileDirectory = $10;
   FileReparsePoint = $400;
   ClientAreaAnimation = $1042;
@@ -59,33 +43,14 @@ type
     Reserved: Cardinal;
   end;
 
-function WindowRegion(X1, Y1, X2, Y2, EllipseWidth, EllipseHeight: Integer): NativeUInt;
-  external 'CreateRoundRectRgn@gdi32.dll stdcall';
-function ApplyWindowRegion(Wnd: HWND; Region: NativeUInt; Redraw: Boolean): Integer;
-  external 'SetWindowRgn@user32.dll stdcall';
-function DisposeGraphics(Handle: NativeUInt): Boolean;
-  external 'DeleteObject@gdi32.dll stdcall';
+function SetDwmAttribute(Wnd: HWND; Attribute: Cardinal; var Value: Cardinal; ValueSize: Cardinal): Longint;
+  external 'DwmSetWindowAttribute@dwmapi.dll stdcall';
 function AddWindowSubclass(Wnd: HWND; Callback: NativeInt; Id, Data: NativeUInt): Boolean;
   external 'SetWindowSubclass@comctl32.dll stdcall';
 function RemoveWindowSubclass(Wnd: HWND; Callback: NativeInt; Id: NativeUInt): Boolean;
   external 'RemoveWindowSubclass@comctl32.dll stdcall';
 function ContinueWindowMessage(Wnd: HWND; Message: Cardinal; WParam: NativeUInt; LParam: NativeInt): NativeInt;
   external 'DefSubclassProc@comctl32.dll stdcall';
-function WindowDC(Wnd: HWND): HDC;
-  external 'GetDC@user32.dll stdcall';
-function ReleaseWindowDC(Wnd: HWND; DC: HDC): Integer;
-  external 'ReleaseDC@user32.dll stdcall';
-function CopyButtonPixels(DC: HDC; X, Y, Width, Height: Integer; Source: HDC;
-  SrcX, SrcY: Integer; Mode: Cardinal): Boolean;
-  external 'BitBlt@gdi32.dll stdcall';
-function RedrawWindowArea(Wnd: HWND; Region: NativeUInt; Erase: Boolean): Boolean;
-  external 'InvalidateRect@user32.dll stdcall';
-function ValidateWindowArea(Wnd: HWND; Region: NativeUInt): Boolean;
-  external 'ValidateRect@user32.dll stdcall';
-function UseHeaderDrag: Boolean;
-  external 'ReleaseCapture@user32.dll stdcall';
-function CursorScreenPosition(var Point: TScreenPoint): Boolean;
-  external 'GetCursorPos@user32.dll stdcall';
 function FileAttributes(const Path: String): Integer;
   external 'GetFileAttributesW@kernel32.dll stdcall';
 function ReadAnimationSetting(Action, Param: Cardinal; var Enabled: Longint; Flags: Cardinal): Longint;
@@ -120,20 +85,11 @@ procedure RestoreQuitMessage(ExitCode: Integer);
   external 'PostQuitMessage@user32.dll stdcall';
 
 type
-  TStyledButton = record
-    Button: TNewButton;
-    WindowHandle: HWND;
-    Primary: Boolean;
-    Background: TColor;
-  end;
   TRemovalShortcut = record
     Path, Hash: String;
   end;
 
 var
-  StyledButtons: array of TStyledButton;
-  HeaderWindows: array of HWND;
-  StyledButtonCallback, HeaderCallback: NativeInt;
   FadeCallback, OriginalExtendedStyle: NativeInt;
   FadingWindow: HWND;
   FadeStarted: Int64;
@@ -145,18 +101,6 @@ var
 
 function LegacyStartMenuLink(Path: String): Boolean;
   forward;
-
-procedure RoundControl(Control: TWinControl; Diameter: Integer);
-var
-  Clip: NativeUInt;
-begin
-  if HighContrastActive then
-    Exit;
-  Clip := WindowRegion(0, 0, Control.Width + 1, Control.Height + 1,
-    ScaleX(Diameter), ScaleY(Diameter));
-  if (Clip <> 0) and (ApplyWindowRegion(Control.Handle, Clip, True) = 0) then
-    DisposeGraphics(Clip);
-end;
 
 procedure Place(Control: TControl; X, Y, Width, Height: Integer);
 begin
@@ -171,123 +115,31 @@ begin
   Panel.StyleElements := [];
   Panel.ParentBackground := False;
   Panel.Color := Fill;
-  RoundControl(Panel, 24);
+end;
+
+function SetupUIFont: String;
+begin
+  Result := 'Segoe UI';
+  if ActiveLanguage = 'zh_TW' then
+    Result := 'Microsoft JhengHei UI'
+  else if ActiveLanguage = 'ja' then
+    Result := 'Yu Gothic UI'
+  else if ActiveLanguage = 'ko' then
+    Result := 'Malgun Gothic';
 end;
 
 procedure LabelFace(LabelText: TNewStaticText; Size: Integer; Foreground: TColor; Heading: Boolean);
 begin
   LabelText.AutoSize := False;
   LabelText.WordWrap := True;
-  LabelText.StyleElements := [];
+  if not HighContrastActive then begin
+    LabelText.StyleElements := [];
+    LabelText.Font.Color := Foreground;
+    LabelText.Font.Name := SetupUIFont;
+  end;
   LabelText.Font.Size := Size;
-  LabelText.Font.Color := Foreground;
-  if Heading then begin
-    LabelText.Font.Name := 'Georgia';
+  if Heading then
     LabelText.Font.Style := [fsBold];
-  end;
-end;
-
-procedure PaintAction(Wnd: HWND; Entry: TStyledButton);
-var
-  Button: TNewButton;
-  Picture: TBitmap;
-  Bounds: TRect;
-  DC: HDC;
-  State, X, Y, R: Integer;
-  Fill, TextColor: TColor;
-  Title: String;
-begin
-  Button := Entry.Button;
-  DC := WindowDC(Wnd);
-  if DC = 0 then
-    Exit;
-  Picture := TBitmap.Create;
-  try
-    Bounds.Left := 0;
-    Bounds.Top := 0;
-    Bounds.Right := Button.Width;
-    Bounds.Bottom := Button.Height;
-    Picture.Width := Bounds.Right;
-    Picture.Height := Bounds.Bottom;
-    Picture.Canvas.Brush.Color := Entry.Background;
-    Picture.Canvas.FillRect(Bounds);
-
-    State := SendMessage(Wnd, BmGetState, 0, 0);
-    Fill := ButtonColor;
-    TextColor := InkColor;
-    if not Button.Enabled then begin
-      Fill := $00E3DCE2;
-      TextColor := $00867980;
-    end else if Entry.Primary then begin
-      Fill := AccentColor;
-      TextColor := clWhite;
-      if State and BstHot <> 0 then
-        Fill := $00945A6B;
-      if State and BstPushed <> 0 then
-        Fill := PressedColor;
-    end else if State and (BstHot or BstPushed) <> 0 then
-      Fill := $00E1D7E7;
-    Picture.Canvas.Pen.Style := psClear;
-    if Button.Focused then begin
-      Picture.Canvas.Pen.Style := psSolid;
-      Picture.Canvas.Pen.Color := FocusColor;
-      Picture.Canvas.Pen.Width := ScaleX(2);
-    end;
-    Picture.Canvas.Brush.Color := Fill;
-    R := ScaleX(18);
-    Picture.Canvas.RoundRect(1, 1, Bounds.Right - 1, Bounds.Bottom - 1, R, R);
-    Title := Button.Caption;
-    StringChangeEx(Title, '&', '', True);
-    Picture.Canvas.Font.Assign(Button.Font);
-    Picture.Canvas.Font.Color := TextColor;
-    Picture.Canvas.Brush.Style := bsClear;
-    X := (Bounds.Right - Picture.Canvas.TextWidth(Title)) div 2;
-    Y := (Bounds.Bottom - Picture.Canvas.TextHeight(Title)) div 2;
-    Picture.Canvas.TextOut(X, Y, Title);
-    CopyButtonPixels(DC, 0, 0, Bounds.Right, Bounds.Bottom, Picture.Canvas.Handle, 0, 0, WindowCopy);
-  finally
-    Picture.Free;
-    ReleaseWindowDC(Wnd, DC);
-    ValidateWindowArea(Wnd, 0);
-  end;
-end;
-
-function ActionWindowProc(Wnd: HWND; Message: Cardinal; WParam: NativeUInt;
-  LParam: NativeInt; Id, Data: NativeUInt): NativeInt;
-begin
-  if Message = WmPaint then begin
-    PaintAction(Wnd, StyledButtons[Integer(Data)]);
-    Result := 0;
-    Exit;
-  end;
-  if Message = WmNcDestroy then
-    RemoveWindowSubclass(Wnd, StyledButtonCallback, Id);
-  Result := ContinueWindowMessage(Wnd, Message, WParam, LParam);
-  case Message of
-    WmEnable, WmSetText, WmSetFocus, WmKillFocus, WmLeftDown, WmLeftUp,
-    WmMouseMove, WmMouseLeave, WmKeyDown, WmKeyUp:
-      RedrawWindowArea(Wnd, 0, False);
-  end;
-end;
-
-procedure StyleAction(Button: TNewButton; Primary: Boolean; Background: TColor);
-var
-  Index: Integer;
-begin
-  if HighContrastActive then
-    Exit;
-  Button.Font.Size := 11;
-  Button.Font.Style := [fsBold];
-  Button.Cursor := crHandPoint;
-  Index := GetArrayLength(StyledButtons);
-  SetArrayLength(StyledButtons, Index + 1);
-  StyledButtons[Index].Button := Button;
-  StyledButtons[Index].WindowHandle := Button.Handle;
-  StyledButtons[Index].Primary := Primary;
-  StyledButtons[Index].Background := Background;
-  if StyledButtonCallback = 0 then
-    StyledButtonCallback := CreateCallback(@ActionWindowProc);
-  AddWindowSubclass(StyledButtons[Index].WindowHandle, StyledButtonCallback, 1, Index);
 end;
 
 function MotionEnabled: Boolean;
@@ -302,12 +154,16 @@ begin
     Result := Enabled <> 0;
 end;
 
+procedure ApplyWindowChrome(Wnd: HWND);
+  forward;
+
 procedure CompleteReveal(Wnd: HWND);
 begin
   StopWindowTimer(Wnd, FadeTimer);
   CurrentAlpha := 255;
   WindowOpacity(Wnd, 0, CurrentAlpha, AlphaEffect);
   WriteWindowStyle(Wnd, ExtendedStyleIndex, OriginalExtendedStyle);
+  ApplyWindowChrome(Wnd);
 end;
 
 procedure DismissWindow(Wnd: HWND);
@@ -396,49 +252,12 @@ begin
     CompleteReveal(Wnd);
 end;
 
-function HeaderWindowProc(Wnd: HWND; Message: Cardinal; WParam: NativeUInt;
-  LParam: NativeInt; Id, Data: NativeUInt): NativeInt;
-var
-  Point: TScreenPoint;
-begin
-  if (Message = WmLeftDown) and CursorScreenPosition(Point) then begin
-    UseHeaderDrag;
-    Result := SendMessage(HWND(Data), WmNcLeftDown, HtCaption,
-      ((Point.Y and $FFFF) shl 16) or (Point.X and $FFFF));
-  end else begin
-    if Message = WmNcDestroy then
-      RemoveWindowSubclass(Wnd, HeaderCallback, Id);
-    Result := ContinueWindowMessage(Wnd, Message, WParam, LParam);
-  end;
-end;
-
-procedure AddHeaderDrag(Control: TWinControl; Window: TForm);
-var
-  Index: Integer;
-  WindowHandle: HWND;
-begin
-  if HeaderCallback = 0 then
-    HeaderCallback := CreateCallback(@HeaderWindowProc);
-  WindowHandle := Control.Handle;
-  if AddWindowSubclass(WindowHandle, HeaderCallback, 2, Window.Handle) then begin
-    Index := GetArrayLength(HeaderWindows);
-    SetArrayLength(HeaderWindows, Index + 1);
-    HeaderWindows[Index] := WindowHandle;
-  end;
-end;
-
 procedure RemoveActiveSubclasses;
-var
-  I: Integer;
 begin
   if FadingWindow <> 0 then begin
     CompleteReveal(FadingWindow);
     RemoveWindowSubclass(FadingWindow, FadeCallback, 3);
   end;
-  for I := 0 to GetArrayLength(StyledButtons) - 1 do
-    RemoveWindowSubclass(StyledButtons[I].WindowHandle, StyledButtonCallback, 1);
-  for I := 0 to GetArrayLength(HeaderWindows) - 1 do
-    RemoveWindowSubclass(HeaderWindows[I], HeaderCallback, 2);
 end;
 
 procedure DeinitializeSetup;
@@ -465,23 +284,18 @@ begin
   Place(Result, X, Y, Width, Height);
 end;
 
-procedure LayoutHeader(Parent: TWinControl; Window: TForm; Width: Integer; Subtitle: String);
+procedure ApplyWindowChrome(Wnd: HWND);
 var
-  Header: TPanel;
-  Brand, Role: TNewStaticText;
+  Value: Cardinal;
 begin
-  Header := TPanel.Create(Parent);
-  Header.Parent := Parent;
-  Place(Header, 20, 17, Width - 40, 68);
-  if not HighContrastActive then
-    Surface(Header, HeaderColor);
-  Brand := TextLabel(Header, 'tt tool', 24, 9, 170, 48, 27, clWhite, True);
-  Role := TextLabel(Header, Subtitle, 191, 24, Width - 255, 34, 12, $00E5DBEA, False);
-  if not HighContrastActive then begin
-    AddHeaderDrag(Header, Window);
-    AddHeaderDrag(Brand, Window);
-    AddHeaderDrag(Role, Window);
-  end;
+  { Let Windows draw the caption, shadow and rounded corners. Windows 10
+    retains its native frame when the Windows 11 attributes are unavailable. }
+  Value := DwmRound;
+  SetDwmAttribute(Wnd, DwmCornerPreference, Value, 4);
+  Value := HeaderColor;
+  SetDwmAttribute(Wnd, DwmCaptionColor, Value, 4);
+  Value := $00FFFFFF;
+  SetDwmAttribute(Wnd, DwmTextColor, Value, 4);
 end;
 
 procedure Frame(Window: TForm; Width, Height: Integer);
@@ -489,12 +303,12 @@ begin
   if HighContrastActive then
     Exit;
   Window.StyleElements := [];
-  Window.BorderStyle := bsNone;
+  Window.BorderStyle := bsDialog;
   Window.Position := poScreenCenter;
   Window.ClientWidth := ScaleX(Width);
   Window.ClientHeight := ScaleY(Height);
   Window.Color := ShellColor;
-  RoundControl(Window, 28);
+  ApplyWindowChrome(Window.Handle);
 end;
 
 procedure LayoutBody(Body: TNewNotebookPage);
@@ -504,18 +318,22 @@ begin
   Body.Color := CardColor;
 end;
 
-procedure LayoutLicenseControls;
+procedure LayoutDirectoryControls;
+var
+  PageWidth, BrowseWidth, EditWidth: Integer;
 begin
-  { The notebook aligns an inactive page when it is made visible. Do not carry
-    its original bottom anchors over to the new fixed-height content layout. }
-  WizardForm.LicenseLabel1.Anchors := [akLeft, akTop];
-  WizardForm.LicenseMemo.Anchors := [akLeft, akTop];
-  WizardForm.LicenseAcceptedRadio.Anchors := [akLeft, akTop];
-  WizardForm.LicenseNotAcceptedRadio.Anchors := [akLeft, akTop];
-  Place(WizardForm.LicenseLabel1, 0, 0, 608, 25);
-  Place(WizardForm.LicenseMemo, 0, 27, 608, 166);
-  Place(WizardForm.LicenseAcceptedRadio, 0, 197, 608, 27);
-  Place(WizardForm.LicenseNotAcceptedRadio, 0, 226, 608, 27);
+  { Inno aligns a notebook page when it is shown. Use the live width and undo
+    the original right-anchor offsets before positioning the native controls. }
+  PageWidth := WizardForm.SelectDirPage.Width;
+  BrowseWidth := WizardForm.CalculateButtonWidth([WizardForm.DirBrowseButton.Caption]);
+  if BrowseWidth < ScaleX(130) then
+    BrowseWidth := ScaleX(130);
+  EditWidth := PageWidth - BrowseWidth - ScaleX(12);
+  WizardForm.DirEdit.Anchors := [akLeft, akTop];
+  WizardForm.DirBrowseButton.Anchors := [akLeft, akTop];
+  WizardForm.DirEdit.SetBounds(0, ScaleY(26), EditWidth, ScaleY(36));
+  WizardForm.DirBrowseButton.SetBounds(PageWidth - BrowseWidth, ScaleY(24),
+    BrowseWidth, ScaleY(40));
 end;
 
 procedure InitializeWizard;
@@ -525,8 +343,8 @@ var
 begin
   if WizardSilent or HighContrastActive then
     Exit;
-  Frame(WizardForm, 704, 540);
-  LayoutHeader(WizardForm, WizardForm, 704, CustomMessage('InstallMode'));
+  WizardForm.Caption := 'tt tool · ' + CustomMessage('InstallMode');
+  Frame(WizardForm, 704, 450);
   WizardForm.Bevel.Visible := False;
   WizardForm.Bevel1.Visible := False;
   WizardForm.MainPanel.Visible := False;
@@ -536,60 +354,48 @@ begin
 
   Card := TPanel.Create(WizardForm);
   Card.Parent := WizardForm;
-  Place(Card, 20, 101, 664, 361);
+  Place(Card, 20, 18, 664, 360);
   Surface(Card, CardColor);
 
   WizardForm.OuterNotebook.Parent := Card;
   WizardForm.OuterNotebook.Anchors := [akLeft, akTop];
-  Place(WizardForm.OuterNotebook, 0, 0, 664, 361);
+  Place(WizardForm.OuterNotebook, 0, 0, 664, 360);
   for I := 0 to WizardForm.OuterNotebook.PageCount - 1 do
     LayoutBody(WizardForm.OuterNotebook.Pages[I]);
   for I := 0 to WizardForm.InnerNotebook.PageCount - 1 do
     LayoutBody(WizardForm.InnerNotebook.Pages[I]);
   WizardForm.InnerNotebook.Anchors := [akLeft, akTop];
-  Place(WizardForm.InnerNotebook, 28, 92, 608, 254);
+  Place(WizardForm.InnerNotebook, 28, 82, 608, 258);
 
   WizardForm.PageNameLabel.Parent := WizardForm.InnerPage;
-  Place(WizardForm.PageNameLabel, 28, 14, 608, 45);
-  LabelFace(WizardForm.PageNameLabel, 24, InkColor, True);
+  Place(WizardForm.PageNameLabel, 28, 20, 608, 39);
+  LabelFace(WizardForm.PageNameLabel, 22, InkColor, True);
   WizardForm.PageDescriptionLabel.Parent := WizardForm.InnerPage;
-  Place(WizardForm.PageDescriptionLabel, 28, 58, 608, 32);
-  LabelFace(WizardForm.PageDescriptionLabel, 12, MutedColor, False);
+  Place(WizardForm.PageDescriptionLabel, 28, 60, 608, 24);
+  LabelFace(WizardForm.PageDescriptionLabel, 11, MutedColor, False);
 
-  Place(WizardForm.WelcomeLabel1, 28, 59, 608, 73);
-  LabelFace(WizardForm.WelcomeLabel1, 33, InkColor, True);
-  Place(WizardForm.WelcomeLabel2, 28, 143, 578, 155);
-  LabelFace(WizardForm.WelcomeLabel2, 15, MutedColor, False);
-  Place(WizardForm.FinishedHeadingLabel, 28, 50, 608, 62);
-  LabelFace(WizardForm.FinishedHeadingLabel, 30, InkColor, True);
-  Place(WizardForm.FinishedLabel, 28, 119, 608, 94);
-  LabelFace(WizardForm.FinishedLabel, 14, MutedColor, False);
-  Place(WizardForm.RunList, 28, 221, 608, 95);
-  Place(WizardForm.YesRadio, 28, 221, 608, 34);
-  Place(WizardForm.NoRadio, 28, 259, 608, 34);
+  WizardForm.WelcomeLabel1.Caption := SetupMessage(msgWelcomeLabel1);
+  WizardForm.WelcomeLabel2.Caption := SetupMessage(msgWelcomeLabel2);
+  Place(WizardForm.WelcomeLabel1, 28, 40, 608, 54);
+  LabelFace(WizardForm.WelcomeLabel1, 28, InkColor, True);
+  Place(WizardForm.WelcomeLabel2, 28, 106, 560, 95);
+  LabelFace(WizardForm.WelcomeLabel2, 13, MutedColor, False);
+  Place(WizardForm.FinishedHeadingLabel, 28, 40, 608, 54);
+  LabelFace(WizardForm.FinishedHeadingLabel, 26, InkColor, True);
+  Place(WizardForm.FinishedLabel, 28, 106, 608, 72);
+  LabelFace(WizardForm.FinishedLabel, 12, MutedColor, False);
+  Place(WizardForm.RunList, 28, 183, 608, 95);
+  Place(WizardForm.YesRadio, 28, 183, 608, 34);
+  Place(WizardForm.NoRadio, 28, 221, 608, 34);
 
-  LabelFace(WizardForm.LicenseLabel1, 11, InkColor, False);
-  WizardForm.LicenseMemo.Color := clWhite;
-  WizardForm.LicenseMemo.BorderStyle := bsSingle;
-  WizardForm.LicenseMemo.ScrollBars := ssVertical;
-  WizardForm.LicenseMemo.Font.Name := 'Segoe UI';
-  WizardForm.LicenseMemo.Font.Size := 11;
-  WizardForm.LicenseMemo.TabStop := True;
-  WizardForm.LicenseAcceptedRadio.Font.Size := 11;
-  WizardForm.LicenseNotAcceptedRadio.Font.Size := 11;
-  LayoutLicenseControls;
-
-  Place(WizardForm.SelectDirLabel, 0, 9, 608, 42);
-  LabelFace(WizardForm.SelectDirLabel, 12, InkColor, False);
-  Place(WizardForm.SelectDirBrowseLabel, 0, 59, 608, 32);
-  LabelFace(WizardForm.SelectDirBrowseLabel, 11, MutedColor, False);
+  WizardForm.SelectDirLabel.Visible := False;
+  WizardForm.SelectDirBrowseLabel.Visible := False;
   WizardForm.DirEdit.AutoSize := False;
-  WizardForm.DirEdit.Font.Size := 12;
-  Place(WizardForm.DirEdit, 0, 98, 448, 37);
-  Place(WizardForm.DirBrowseButton, 464, 95, 144, 44);
-  Place(WizardForm.DiskSpaceLabel, 0, 162, 608, 28);
-  LabelFace(WizardForm.DiskSpaceLabel, 11, MutedColor, False);
-  StyleAction(WizardForm.DirBrowseButton, False, CardColor);
+  WizardForm.DirEdit.Font.Name := SetupUIFont;
+  WizardForm.DirEdit.Font.Size := 11;
+  Place(WizardForm.DiskSpaceLabel, 0, 82, 608, 28);
+  LabelFace(WizardForm.DiskSpaceLabel, 10, MutedColor, False);
+  LayoutDirectoryControls;
 
   Place(WizardForm.SelectTasksLabel, 0, 8, 608, 51);
   LabelFace(WizardForm.SelectTasksLabel, 11, InkColor, False);
@@ -612,23 +418,16 @@ begin
   Place(WizardForm.PreparingYesRadio, 46, 114, 562, 30);
   Place(WizardForm.PreparingNoRadio, 46, 151, 562, 30);
 
-  Place(WizardForm.CancelButton, 20, 479, 142, 46);
-  Place(WizardForm.BackButton, 378, 479, 146, 46);
-  Place(WizardForm.NextButton, 538, 479, 146, 46);
-  StyleAction(WizardForm.CancelButton, False, ShellColor);
-  StyleAction(WizardForm.BackButton, False, ShellColor);
-  StyleAction(WizardForm.NextButton, True, ShellColor);
+  Place(WizardForm.CancelButton, 20, 393, 142, 41);
+  Place(WizardForm.BackButton, 378, 393, 146, 41);
+  Place(WizardForm.NextButton, 538, 393, 146, 41);
   BeginReveal(WizardForm);
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
-  if (CurPageID = wpLicense) and not WizardSilent then begin
-    if not HighContrastActive then
-      LayoutLicenseControls;
-    if WizardForm.LicenseMemo.CanFocus then
-      WizardForm.ActiveControl := WizardForm.LicenseMemo;
-  end;
+  if (CurPageID = wpSelectDir) and not WizardSilent and not HighContrastActive then
+    LayoutDirectoryControls;
 end;
 
 function HasUninstallSwitch(Switch: String): Boolean;
@@ -650,15 +449,14 @@ var
   Toggle: TNewCheckBox;
   Cancel, Remove: TNewButton;
 begin
-  Dialog := CreateCustomForm(610, 397, True, True);
+  Dialog := CreateCustomForm(610, 318, True, True);
   try
-    Dialog.Caption := CustomMessage('RemoveHeading');
+    Dialog.Caption := 'tt tool · ' + CustomMessage('RemoveMode');
     Dialog.Position := poScreenCenter;
-    Frame(Dialog, 610, 397);
-    LayoutHeader(Dialog, Dialog, 610, CustomMessage('RemoveMode'));
+    Frame(Dialog, 610, 318);
     Card := TPanel.Create(Dialog);
     Card.Parent := Dialog;
-    Place(Card, 20, 101, 570, 222);
+    Place(Card, 20, 20, 570, 222);
     if not HighContrastActive then
       Surface(Card, CardColor);
     TextLabel(Card, CustomMessage('RemoveHeading'), 24, 12, 522, 47, 24, InkColor, True);
@@ -668,6 +466,7 @@ begin
     Directory.Parent := Card;
     Directory.ReadOnly := True;
     Directory.AutoSize := False;
+    Directory.Font.Name := SetupUIFont;
     Directory.Font.Size := 11;
     Directory.Text := ExpandConstant('{app}');
     Place(Directory, 24, 136, 522, 33);
@@ -675,6 +474,7 @@ begin
     Toggle.Parent := Card;
     Toggle.Caption := CustomMessage('RemoveDataOption');
     Toggle.Checked := False;
+    Toggle.Font.Name := SetupUIFont;
     Toggle.Font.Size := 11;
     Place(Toggle, 24, 177, 522, 32);
     Cancel := TNewButton.Create(Dialog);
@@ -683,14 +483,12 @@ begin
     Cancel.ModalResult := mrCancel;
     Cancel.Cancel := True;
     Cancel.Default := True;
-    Place(Cancel, 20, 338, 142, 44);
-    StyleAction(Cancel, False, ShellColor);
+    Place(Cancel, 20, 257, 142, 44);
     Remove := TNewButton.Create(Dialog);
     Remove.Parent := Dialog;
     Remove.Caption := CustomMessage('RemoveAction');
     Remove.ModalResult := mrOk;
-    Place(Remove, 424, 338, 166, 44);
-    StyleAction(Remove, True, ShellColor);
+    Place(Remove, 424, 257, 166, 44);
     Dialog.ActiveControl := Cancel;
     BeginReveal(Dialog);
     Result := Dialog.ShowModal = mrOk;
@@ -705,14 +503,13 @@ var
   Card: TPanel;
   Progress: TNewProgressBar;
 begin
-  Result := CreateCustomForm(610, 254, True, True);
-  Result.Caption := Heading;
+  Result := CreateCustomForm(610, 173, True, True);
+  Result.Caption := 'tt tool · ' + CustomMessage('RemoveMode');
   Result.Position := poScreenCenter;
-  Frame(Result, 610, 254);
-  LayoutHeader(Result, Result, 610, CustomMessage('RemoveMode'));
+  Frame(Result, 610, 173);
   Card := TPanel.Create(Result);
   Card.Parent := Result;
-  Place(Card, 20, 101, 570, 132);
+  Place(Card, 20, 20, 570, 132);
   if not HighContrastActive then
     Surface(Card, CardColor);
   TextLabel(Card, Heading, 24, 12, 522, 42, 24, InkColor, True);
@@ -810,15 +607,15 @@ var
 begin
   if HighContrastActive or HasUninstallSwitch('/VERYSILENT') then
     Exit;
-  Frame(UninstallProgressForm, 610, 307);
-  LayoutHeader(UninstallProgressForm, UninstallProgressForm, 610, CustomMessage('RemoveMode'));
+  UninstallProgressForm.Caption := 'tt tool · ' + CustomMessage('RemoveMode');
+  Frame(UninstallProgressForm, 610, 226);
   UninstallProgressForm.Bevel.Visible := False;
   UninstallProgressForm.Bevel1.Visible := False;
   UninstallProgressForm.MainPanel.Visible := False;
   UninstallProgressForm.BeveledLabel.Visible := False;
   Card := TPanel.Create(UninstallProgressForm);
   Card.Parent := UninstallProgressForm;
-  Place(Card, 20, 101, 570, 185);
+  Place(Card, 20, 20, 570, 185);
   Surface(Card, CardColor);
   UninstallProgressForm.OuterNotebook.Parent := Card;
   Place(UninstallProgressForm.OuterNotebook, 0, 0, 570, 185);
@@ -913,15 +710,14 @@ var
   CloseButton, ReleaseButton: TNewButton;
   Detail: String;
 begin
-  Dialog := CreateCustomForm(610, 311, True, True);
+  Dialog := CreateCustomForm(610, 230, True, True);
   try
-    Dialog.Caption := CustomMessage('RemoveFinishedHeading');
+    Dialog.Caption := 'tt tool · ' + CustomMessage('RemoveMode');
     Dialog.Position := poScreenCenter;
-    Frame(Dialog, 610, 311);
-    LayoutHeader(Dialog, Dialog, 610, CustomMessage('RemoveMode'));
+    Frame(Dialog, 610, 230);
     Card := TPanel.Create(Dialog);
     Card.Parent := Dialog;
-    Place(Card, 20, 101, 570, 135);
+    Place(Card, 20, 20, 570, 135);
     if not HighContrastActive then
       Surface(Card, CardColor);
     TextLabel(Card, CustomMessage('RemoveFinishedHeading'), 24, 14, 522, 45, 24, InkColor, True);
@@ -936,16 +732,14 @@ begin
     ReleaseButton.Parent := Dialog;
     ReleaseButton.Caption := CustomMessage('RemoveOpenReleases');
     ReleaseButton.OnClick := @OpenStableRelease;
-    Place(ReleaseButton, 20, 251, 224, 44);
-    StyleAction(ReleaseButton, False, ShellColor);
+    Place(ReleaseButton, 20, 170, 224, 44);
     CloseButton := TNewButton.Create(Dialog);
     CloseButton.Parent := Dialog;
     CloseButton.Caption := CustomMessage('RemoveClose');
     CloseButton.ModalResult := mrOk;
     CloseButton.Default := True;
     CloseButton.Cancel := True;
-    Place(CloseButton, 444, 251, 146, 44);
-    StyleAction(CloseButton, True, ShellColor);
+    Place(CloseButton, 444, 170, 146, 44);
     Dialog.ActiveControl := CloseButton;
     BeginReveal(Dialog);
     Dialog.ShowModal;
