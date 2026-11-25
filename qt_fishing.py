@@ -344,6 +344,7 @@ class FishingWindow(QtWidgets.QMainWindow):
         head = self.title_layout = QtWidgets.QHBoxLayout()
         head.setSpacing(6)
         center = QtCore.Qt.AlignmentFlag.AlignVCenter
+        bottom = QtCore.Qt.AlignmentFlag.AlignBottom
         self.title_brand = self.label('tt tool', 'brand')
         self.title_version = self.label(f'v{self.maintenance.version}', 'appVersion')
         self.title_subtitle = self.label('手機活動助手', 'muted')
@@ -351,10 +352,14 @@ class FishingWindow(QtWidgets.QMainWindow):
         for label in (self.title_brand, self.title_version, self.title_subtitle, self.title_transport):
             label.setWordWrap(False)
             label.setSizePolicy(QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Fixed)
-        head.addWidget(self.title_brand, alignment=center)
-        head.addWidget(self.title_version, alignment=center)
+        # The smaller fonts have a shallower descent than the brand face.
+        # Inset their content so the painted glyphs share its visual baseline.
+        self.title_version.setContentsMargins(0, 0, 0, 5)
+        self.title_subtitle.setContentsMargins(0, 0, 0, 5)
+        head.addWidget(self.title_brand, alignment=bottom)
+        head.addWidget(self.title_version, alignment=bottom)
         head.addSpacing(8)
-        head.addWidget(self.title_subtitle, alignment=center)
+        head.addWidget(self.title_subtitle, alignment=bottom)
         head.addStretch()
         head.addWidget(self.title_transport, alignment=center)
         head.addSpacing(10)

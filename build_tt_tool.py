@@ -64,6 +64,10 @@ def copy_payload(payload, cache):
         destination = payload / source
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / source, destination)
+    for name in ("NOTICE", "docs/THIRD-PARTY"):
+        for locale in ("zh-TW", "ja", "ko"):
+            source = f"{name}.{locale}.md"
+            shutil.copyfile(ROOT / source, payload / source)
     shutil.copyfile(ROOT / "packaging/tt-tool.ico", payload / "tt-tool.ico")
     dependencies = {"target": base["target"], "python": base["python"], "wheels": wheels}
     (payload / "DEPENDENCIES.json").write_text(json.dumps(dependencies, indent=2) + "\n", encoding="utf-8")

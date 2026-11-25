@@ -1,39 +1,43 @@
-# Windows免安装便携版
+# Windows installation-free portable version
 
-## 普通用户
+English · [繁體中文](WINDOWS.zh-TW.md) · [日本語](WINDOWS.ja.md) · [한국어](WINDOWS.ko.md)
 
-在项目的GitHub Releases中选择 `tt-tool-emulator-版本号-Windows-x64.zip`，完整解压，双击 `启动钓鱼助手.bat`。下载页是否已有对应版本，以项目实际发布为准。不要下载GitHub自动生成的Source code ZIP来代替便携包。
+> This technical record includes historical versions and measurements. For current setup and supported workflows, see [the main guide](../README.md).
 
-适用64位Windows 10／11。包中带有独立CPython、Tcl/Tk、NumPy、OpenCV、Pillow和MSS；无需安装Python、Anaconda、PyCharm或额外运行pip，首次启动也不下载组件。雷电或MuMu模拟器和游戏仍需自行准备。程序不会修改系统Python、注册表或PATH。
+## Ordinary user
 
-根目录的 `app/` 保存完整项目源码和资源，`runtime/` 保存独立运行环境，`data/` 在运行后保存本机配置、日志、截图和录像。双击入口使用随包解释器的隔离模式，不读取用户安装的Python包和PYTHONPATH。
+Select `tt-tool-emulator-版本号-Windows-x64.zip` in the project's GitHub Releases, completely unzip it, and double-click `启动钓鱼助手.bat`. Whether the corresponding version is already available on the download page shall be subject to the actual release of the project. Do not download the GitHub automatically generated Source code ZIP in place of the portable package.
 
-解压到当前账户可写的位置，不要放在压缩包预览窗口、只读盘或需要提权才能写入的系统目录。同一个数据目录重复启动会提示切换到已打开的窗口。不同文件夹中的独立副本仍应避免同时控制同一模拟器。
+Applicable to 64-bit Windows 10/11. The package comes with independent CPython, Tcl/Tk, NumPy, OpenCV, Pillow and MSS; there is no need to install Python, Anaconda, PyCharm or run additional pip, and there is no need to download components when starting up for the first time. LDPlayer or MuMu simulators and games still need to be prepared by yourself. The program does not modify the system Python, registry, or PATH.
 
-初次使用仍需要设置空格映射、选择窗口、框选完整游戏区域，并通过开始按钮或快捷键启动钓鱼。操作步骤见 [README](../README.md)。
+`app/` in the root directory saves the complete project source code and resources, `runtime/` saves the independent running environment, and `data/` saves the local configuration, logs, screenshots and videos after running. Double-click the entry to use the isolation mode of the package interpreter, and do not read the Python package and PYTHONPATH installed by the user.
 
-## 更新与排查
+Unzip to a location writable by the current account. Do not place it in the compressed package preview window, a read-only disk, or a system directory that requires elevated privileges to write. Repeated startup of the same data directory will prompt you to switch to an already open window. Separate copies in different folders should still avoid controlling the same emulator at the same time.
 
-- 更新：先退出旧版，将新包解压到新文件夹。保留旧目录备份；需要沿用设置时，仅复制旧 `data/` 中的 `config.json`、`speed_profile.json` 到新包的 `data/`，不存在的文件无需创建。从源码版迁移时，复制项目根目录中的这两个文件。历史截图和录像可继续保留在旧目录。
-- 无法打开：双击 `检查运行环境.bat`，保留显示的错误；启动错误另写入 `data/logs/startup.log`。不要公开未经检查的错误日志。
-- 文件被拦截或缺失：核对是否来自项目发布页、校验值是否一致，再按系统提示处理；不要以关闭安全软件作为常规步骤。
-- 权限不一致：仅当模拟器以管理员身份运行时，才考虑以相同权限运行助手。
-- 分享：发布构建得到的原始ZIP，不要重新压缩自己已经使用过的便携目录。
+For first-time use, you still need to set up space mapping, select windows, frame the entire game area, and start fishing through the start button or shortcut keys. See [README](../README.md) for operating steps.
 
-## 维护者重新生成
+## Updates and troubleshooting
 
-仓库根目录运行：
+- Update: Exit the old version first and extract the new package to a new folder. Keep the old directory backup; when you need to inherit the settings, only copy `config.json` and `speed_profile.json` in the old `data/` to `data/` in the new package. No need to create files that do not exist. When migrating from the source version, copy these two files in the project root directory. Historical screenshots and videos can continue to be retained in the old directory.
+- Unable to open: Double-click `检查运行环境.bat` to retain the displayed error; the startup error is written to `data/logs/startup.log`. Don't expose unchecked error logs.
+- The file is intercepted or missing: check whether it comes from the project release page, whether the verification values ​​are consistent, and then follow the system prompts; do not turn off security software as a routine step.
+- Inconsistent permissions: The assistant is only considered running with the same permissions if the emulator is run as administrator.
+- Share: Publish the original ZIP you built, do not re-zip the portable directory you have already used.
+
+## Maintainer regenerates
+
+Run from the warehouse root directory:
 
 ```bash
 python build_windows.py
 ```
 
-构建入口只需Python 3.10以上的标准库。首次构建需要联网，从固定清单下载运行环境和Windows依赖，逐个检查SHA-256。之后可复用 `.build-cache/` 中的文件。构建不会读取本机 `config.json` 或把日志、截图、录像带入成品。
+The build entry only requires the standard library of Python 3.10 or above. The first build requires an Internet connection, downloads the operating environment and Windows dependencies from the fixed list, and checks SHA-256 one by one. The files in `.build-cache/` can be reused later. The build will not read native `config.json` or bring logs, screenshots, or videos into the finished product.
 
-输出在 `dist/tt-tool-emulator-版本号-Windows-x64.zip`。Windows主机上构建还会用随包解释器检查Tk、ImageTk、图像模板、录像编解码和显示器接口；该检查不截图、不发送按键。在其他操作系统上可组装相同便携包，但二进制结构和文件完整性检查不等于Windows运行验证。发布前仍需在Windows上检查界面、框选、暂停与真实模拟器操作。
+The output is at `dist/tt-tool-emulator-版本号-Windows-x64.zip`. Building on a Windows host will also use the package interpreter to check Tk, ImageTk, image templates, video codecs and display interfaces; this check does not take screenshots or send keystrokes. The same portable package can be assembled on other operating systems, but binary structure and file integrity checks are not equivalent to Windows runtime verification. Before publishing, you still need to check the interface, frame selection, pause and real simulator operation on Windows.
 
-在GitHub上传源码后，也可进入 **Actions → Windows portable → Run workflow**。工作流在Windows机器上构建、检查，成功后提供可下载的构建产物。下载后将便携ZIP手动添加到GitHub Release；工作流不会自动发布版本。仓库须包含 `.github/workflows/windows-portable.yml`，不要漏传以点开头的目录。
+After uploading the source code to GitHub, you can also enter **Actions → Windows portable → Run workflow**. The workflow is built and checked on a Windows machine, and a downloadable build product is provided upon success. Manually add the portable ZIP to GitHub Release after downloading; the workflow does not automatically release the release. The warehouse must contain `.github/workflows/windows-portable.yml`, and do not miss directories starting with a dot.
 
-`packaging/windows-runtime.lock.json` 固定依赖版本、来源和哈希。更新依赖时要同时核对Windows x64／Python 3.12兼容性及许可，验证实际下载后再更新清单；不要只改版本字符串。当前锁定包没有wheel的额外`.data`安装目录；新增此类依赖须先扩展并测试构建规则。
+`packaging/windows-runtime.lock.json` Fixed dependency version, source and hash. When updating dependencies, you must also check Windows x64/Python 3.12 compatibility and licensing, and verify the actual download before updating the list; do not just change the version string. The current locked package does not have an additional `.data` installation directory for wheel; to add such dependencies, you must first expand and test the build rules.
 
-本项目使用独立运行环境目录实现免安装，不需要在用户电脑临时解包单文件EXE。请始终一起分发入口、app和runtime。源码由明确文件清单生成；第三方二进制保留其上游许可，版本与下载来源记录在包内 `DEPENDENCIES.json`。
+This project uses an independent running environment directory to achieve installation-free, and does not require temporary unpacking of a single EXE file on the user's computer. Please always distribute the portal, app and runtime together. Source code is generated from an explicit file manifest; third-party binaries retain their upstream license, and the version and download source are recorded in the package `DEPENDENCIES.json`.

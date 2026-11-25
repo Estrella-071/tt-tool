@@ -1,34 +1,38 @@
-# 黄条点击时序
+# Yellow bar click timing
 
-截图和按键使用两个独立期限：截图默认间隔100毫秒；一个待执行按键由控制循环单独检查，不等待下一次截图。控制循环通常每10毫秒让出线程，临近按键期限时按剩余时间等待。实际唤醒精度仍取决于Windows调度。
+English · [繁體中文](ALGORITHM.zh-TW.md) · [日本語](ALGORITHM.ja.md) · [한국어](ALGORITHM.ko.md)
 
-## 往返运动
+> This technical record includes historical versions and measurements. For current setup and supported workflows, see [the main guide](../README.md).
 
-以轨道可见外框宽度为1，默认速度为每秒0.606条宽。鱼漂中心的左右端点采用同一坐标系中的0.083和0.940，避免把轨道装饰当成中心行程；单程约1.41秒。归一化后的图像仅用于控件定位，速度不依赖原始屏幕分辨率。
+Screenshots and keystrokes use two independent periods: the default interval between screenshots is 100 milliseconds; a pending keystroke is checked individually by the control loop without waiting for the next screenshot. The control loop usually yields the thread every 10 milliseconds and waits for the remaining time when the key press deadline is approaching. Actual wake-up accuracy still depends on Windows scheduling.
 
-运动相位始终向前增加，位置由三角波映射到轨道。到达端点只反转方向，不重置速度。首次识别默认向右，之后根据时间自动跨越端点。新截图将位置投到最接近预测的往返分支，避免仅凭两张图的位移符号猜方向。多轮黄条继续使用同一运动相位。
+## round trip motion
 
-## 点击规则
+The visible frame width of the track is 1, and the default speed is 0.606 lines per second. The left and right endpoints of the fish float center adopt 0.083 and 0.940 in the same coordinate system to avoid taking the track decoration as the center stroke; one trip is about 1.41 seconds. The normalized image is only used for control positioning, and the speed does not depend on the original screen resolution.
 
-- 将观测位置预测到输入生效时刻；届时仍在黄色范围内才立即点击，否则预约下一次经过。
-- 尚未进入：计算下一次经过黄条中部的时间，扣除输入延迟后预约点击。左右两个方向和需要先折返的路径都参与计算。
-- 黄条很窄时仍计算中部，不因固定像素边距大于条宽而禁止点击。
-- 一个待执行计划会被下一张图更新；未知画面、其他阶段、暂停、失焦或窗口尺寸变化取消计划。
-- 同一趟经过最多点击一次；黄条变化可进入下一轮。黄条未变时，在离开后下一次经过可以重试，不依赖永久锁定或有限重试次数。
-- 鱼漂遮挡黄色时保留已经确认的完整边界，避免把剩余一小段颜色当成新目标。
+The motion phase always increases forward and the position is mapped to the orbit by the triangle wave. Reaching the endpoint only reverses direction and does not reset speed. The first identification defaults to the right, and then it automatically crosses the endpoint based on time. The new screenshot projects the position to the round-trip branch closest to the prediction to avoid guessing the direction based on the displacement sign of the two images. Multiple rounds of yellow bars continue to use the same phase of movement.
 
-按键临近时优先处理输入，再进行截图。所有计划均保留当前窗口和紧急暂停检查，不使用长时间不可取消的休眠。过了整段命中窗口则重新计算下一次经过。
+## Click rules
 
-## 速度与延迟
+- Predict the observation position to the time when the input takes effect; click immediately when it is still within the yellow range, otherwise make a reservation for the next pass.
+- Not yet entered: Calculate the time to pass through the middle of the yellow bar next time, and schedule a click after deducting the input delay. Both the left and right directions and the path that needs to be turned back first are involved in the calculation.
+- When the yellow bar is very narrow, the middle part is still calculated, and clicks are not prohibited because the fixed pixel margin is larger than the bar width.
+- A plan to be executed will be updated by the next picture; unknown pictures, other stages, pauses, out-of-focus or window size changes cancel the plan.
+- You can click at most once on the same trip; if the yellow bar changes, you can enter the next round. When the yellow bar does not change, you can retry the next time you pass it after leaving, without relying on permanent locking or limited retries.
+- When the fish float blocks the yellow color, it retains the complete boundary that has been confirmed and avoids treating the remaining small segment of color as a new target.
 
-固定速度从本机校准文件读取，未保存过时用参考值。显式勾选校准后，只利用正常采样中的同向区间；高频时保留区间起点，累计至少0.25秒再估速，按键或折返后重新取区间；排除跨端点、输入动效附近、零位移和明显异常速度，以中位数与MAD筛选离群值。双向样本稳定后保存比例、样本数和离散度，停止校准；不保存原始轨迹，不额外加密截图。
+When the key is near, the input is processed first and then the screenshot is taken. All plans retain the current window and emergency pause checks and do not use long non-cancelable hibernations. After the entire hit window has passed, the next pass is recalculated.
 
-游戏响应延迟基准默认40毫秒，可手动调整。本机补偿只测量计划时刻到系统输入执行的可测部分，单次调整和总补偿都有上限；它不等于游戏内部接收时刻，也不会凭画面变化宣称测得完整游戏延迟。
+## Speed ​​and latency
 
-## 适用边界
+The fixed speed is read from the local calibration file, and the reference value is used when not saved. After explicitly checking the calibration, only the same direction interval in normal sampling is used; the starting point of the interval is retained at high frequency, and the speed is estimated again after accumulating at least 0.25 seconds, and the interval is retaken after pressing the key or turning back; cross-end points, near input motion effects, zero displacement and obvious abnormal speeds are excluded, and outliers are screened out by the median and MAD. After the bidirectional samples are stable, the ratio, number of samples, and dispersion will be saved and the calibration will be stopped; the original trajectory will not be saved, and no additional screenshots will be encrypted.
 
-该策略假设两次截图之间近似匀速运动，首次方向向右。低频截图可能错过短暂上钩提示，也不能同时确定任意方向、任意速度和任意停顿；在黄条中途重新启动时，首个方向可能与实际相反。建议在准备下钩时启动。游戏暂停、明显变速、系统长时间阻塞或视觉漏检仍可能导致漏按/误按。
+The game response delay benchmark defaults to 40 milliseconds and can be adjusted manually. The local compensation only measures the measurable part from the planned time to the system input execution, and there are upper limits for single adjustment and total compensation; it is not equal to the internal receiving time of the game, nor does it claim to measure the complete game delay based on screen changes.
 
-当前不使用停帧检测去阻止已预约输入。图像识别仍要求完整框选且游戏布局能对应模板；改变宽高比造成控件重新排版时需要重新适配，比例速度不能代替视觉适配。
+## applicable boundary
 
-运行时不自动保存截图、轨迹、日志或诊断包。仅手动截图/录制及明确勾选校准会写入相应本机文件。
+This strategy assumes approximately uniform motion between the two screenshots, with the first direction going to the right. Low-frequency screenshots may miss the short hook prompt, and cannot determine any direction, speed, and pause at the same time; when the yellow bar is restarted midway, the first direction may be opposite to the actual one. It is recommended to start when preparing to set the hook. Game pauses, significant speed changes, prolonged system congestion, or visual misses may still result in missed/accidental presses.
+
+Freeze frame detection is currently not used to block scheduled input. Image recognition still requires complete frame selection and the game layout can correspond to the template; changing the aspect ratio requires re-adaptation when the controls are rearranged, and proportional speed cannot replace visual adaptation.
+
+Screenshots, traces, logs or diagnostic packages are not automatically saved during runtime. Only manual screenshots/recordings and explicit calibration will be written to the corresponding native file.

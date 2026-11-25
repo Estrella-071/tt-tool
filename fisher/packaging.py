@@ -39,6 +39,16 @@ PUBLIC_FILES = (
     ".github/workflows/windows-portable.yml",
     "docs/DEVELOPMENT.md", "docs/PRIVACY.md", "docs/images/crop-example.png",
     ".github/ISSUE_TEMPLATE/bug_report.md",
+    "README-SWEEP.md", "docs/SWEEP-TIMING.md",
+) + tuple(
+    f"{name}.{locale}.md"
+    for name in (
+        "README-SWEEP", "NOTICE", "CHANGELOG",
+        "docs/ADB", "docs/ALGORITHM", "docs/DEVELOPMENT", "docs/EMULATOR",
+        "docs/INSTALLER", "docs/PRIVACY", "docs/SWEEP-TIMING",
+        "docs/THIRD-PARTY", "docs/USB-DEBUGGING", "docs/VALIDATION-ADB", "docs/WINDOWS",
+    )
+    for locale in ("zh-TW", "ja", "ko")
 ) + tuple(
     f"docs/images/tt-tool/{locale}-{view}.png"
     for locale in ("zh_TW", "en", "ja", "ko")

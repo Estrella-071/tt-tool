@@ -51,8 +51,13 @@ class QtLayoutTests(unittest.TestCase):
                         self.assertTrue(self.w.title_subtitle.isVisible())
                     visible = [label for label in labels if label.isVisible()]
                     self.assertTrue(all(label in visible for label in (self.w.title_brand, self.w.title_version, self.w.title_transport)))
-                    centers = [item.geometry().center().y() for item in (*visible, self.w.max_button)]
-                    self.assertLessEqual(max(centers)-min(centers), 1)
+                    title_labels = [label for label in visible if label is not self.w.title_transport]
+                    bottoms = [label.geometry().bottom() for label in title_labels]
+                    self.assertLessEqual(max(bottoms)-min(bottoms), 1)
+                    self.assertEqual(self.w.title_version.contentsMargins().bottom(), 5)
+                    self.assertEqual(self.w.title_subtitle.contentsMargins().bottom(), 5)
+                    self.assertLessEqual(abs(self.w.title_transport.geometry().center().y()
+                                             - self.w.max_button.geometry().center().y()), 1)
                     for label in visible:
                         self.assertFalse(label.wordWrap())
                         self.assertGreaterEqual(label.width(), label.sizeHint().width())

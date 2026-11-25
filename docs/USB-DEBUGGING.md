@@ -1,5 +1,7 @@
 # Enable USB debugging on Android
 
+[English](USB-DEBUGGING.md) · [繁體中文](USB-DEBUGGING.zh-TW.md) · [日本語](USB-DEBUGGING.ja.md) · [한국어](USB-DEBUGGING.ko.md)
+
 1. Use the menu path below for your phone to reveal **Developer options**. Tap the indicated version or build field seven times and enter your phone's lock-screen PIN if requested. If Developer options is already available, proceed to the next step.
 2. Open **Developer options**, turn on **USB debugging**, and confirm the prompt on the phone.
 3. Keep the phone unlocked and connect it to your computer with a USB data cable. When the phone shows **Allow USB debugging?**, approve the RSA key for a computer you trust.

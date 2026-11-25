@@ -1,25 +1,29 @@
-# 本地数据与公开发布
+# Local data and public release
 
-运行程序不需要注册、账号密码或API密钥。图像在本机处理；没有自动上传、远程指令或联网识别。点击项目或作者链接时才打开默认浏览器。
+English · [繁體中文](PRIVACY.zh-TW.md) · [日本語](PRIVACY.ja.md) · [한국어](PRIVACY.ko.md)
 
-正常钓鱼不自动保存截图、轨迹、运行日志或诊断ZIP。暂停、F9和关闭不会导出测试数据。历史诊断工具和回归代码仅用于开发，不由本发行版的正常运行路径启动。
+For the current Windows installer, settings, calibration and local logs are stored under %LOCALAPPDATA%\tt-tool\data. The uninstaller keeps them by default and offers an option to remove them.
 
-遺跡探險在首領做出決定或長時間等待時，會在本機 `logs/ruins_decisions.jsonl` 記錄勝率讀值、是否辨識到紅寶、決策與輸入結果，供排查卡住原因。記錄不包含截圖、帳號或裝置識別碼，約 256 KB 輪替一次，最多保留目前及前一份；不會自動上傳。
+Image recognition is processed locally. The app connects to GitHub when you manually check for updates or download an update. Diagnostic data is not uploaded automatically. No registration, account password or API key is required to run the program.
 
-| 位置 | 内容 | 公开源码包 |
+Normal fishing does not automatically save screenshots, tracks, running logs or diagnostic ZIPs. Pause, F9 and shutdown will not export test data. Historical diagnostic tools and regression code are for development purposes only and are not launched from the normal runtime path of this release.
+
+When a Ruins Adventure boss decision is made or the activity waits for a long time, `logs/ruins_decisions.jsonl` records the observed win chance, red-treasure recognition, decision and input result to help diagnose stalls. It excludes screenshots, accounts and device identifiers. The log rotates at approximately 256 KB and retains at most the current and previous files. It is not uploaded automatically.
+
+| Location | Content | Open Source Packages |
 |---|---|---|
-| `config.example.json` | 默认设置，框选为空 | 包含 |
-| `assets/templates/` | 必要的局部控件图 | 包含 |
-| `docs/images/` | 脱敏操作示例 | 包含 |
-| `tests/assets/` | 只含判定条、重量图标及收下按钮的局部回归素材 | 包含 |
-| `config.json` | 本机设置、模拟器种类、窗口标题和框选 | 排除 |
-| `speed_profile.json` | 明确完成校准后的比例和统计量 | 排除 |
-| `snapshots/`、`recordings/` | 用户主动截图/录制的文件，可能包含昵称或聊天 | 排除 |
-| `logs/`、`support/`、`replay_output/` | 啟動異常、遺跡首領決策或手動開發工具輸出 | 排除 |
-| `trial_records/`、`trial_exports/` | 历史测试构建的数据目录 | 排除 |
+| `config.example.json` | Default setting, box selection is empty | Contains |
+| `assets/templates/` | Necessary local control diagram | Contains |
+| `docs/images/` | Desensitization operation example | Contains |
+| `tests/assets/` | Partial regression material containing only judgment bar, weight icon and accept button | Contains |
+| `config.json` | Local settings, simulator type, window title and box selection | Exclusion |
+| `speed_profile.json` | Clarify the proportions and statistics after calibration | Exclusion |
+| `snapshots/`, `recordings/` | Screenshots/recorded files taken by users, which may contain nicknames or chats | Exclusion |
+| `logs/`, `support/`, `replay_output/` | Startup abnormality, ruin leader decision-making or manual development tool output | Exclusion |
+| `trial_records/`, `trial_exports/` | Data directory built by historical tests | Exclusion |
 
-源码版默认把本机文件保存在工程目录，便携启动入口使用`data/`。启动器仅在异常时保存本机错误信息，可能含安装路径；不要原样公开。固定速度运行不保存原始位置样本；显式校准只把合格的比例、样本数和离散度写入速度文件。
+The source code version saves local files in the project directory by default, and the portable startup entry uses `data/`. The launcher only saves local error information when there is an exception, which may include the installation path; do not disclose it as it is. Fixed speed runs do not save raw position samples; explicit calibration only writes the qualified scale, number of samples, and dispersion to the speed file.
 
-`.gitignore`不能删除已经提交的Git历史。公开更新应运行`python build_release.py`，该入口使用明确文件清单，不扫描额外本机资料。不要直接压缩使用过的整个工程目录，也不要把历史诊断ZIP提交到仓库。
+`.gitignore` Unable to delete Git history that has been committed. Public updates should run `python build_release.py`, which uses an explicit file list and does not scan additional local data. Do not directly compress the entire used project directory, and do not submit the historical diagnosis ZIP to the warehouse.
 
-`make_support_bundle.py`是手动开发工具，默认只含公开源码。附加截图、录像或日志需显式参数；可能含个人信息，分享前逐项检查。问题反馈优先提供版本、状态提示和复现步骤，不公开账号密码、聊天记录、私人目录或完整本机配置。
+`make_support_bundle.py` is a manual development tool that only contains open source code by default. Attaching screenshots, videos or logs requires explicit parameters; it may contain personal information, so check each item before sharing. Problem feedback will give priority to providing version, status prompts and reproduction steps. Account passwords, chat records, private directories or complete local configuration will not be disclosed.

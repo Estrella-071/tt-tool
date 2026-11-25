@@ -1,32 +1,36 @@
-# 裂縫大掃除：計時模型與證據
+# Crack Cleaning: Chronomodels and Evidence
 
-## 樣本
+English · [繁體中文](SWEEP-TIMING.zh-TW.md) · [日本語](SWEEP-TIMING.ja.md) · [한국어](SWEEP-TIMING.ko.md)
 
-- Android 1.1.6，versionCode 120733181，arm64-v8a。模擬器安裝的三個 APK 與本機保存檔的 SHA-256 一致；arm64 split 為 `7fdd866a18ae22c139e84be7ab2c5a2dded7a5e000961f3cd3e49c12cb662103`。
-- `libil2cpp.so` SHA-256：`1223d55a9903364c283fac07f96102410c8adec128add3888e9cb4fb80c67e9c`。以下位址是 ELF 虛擬位址，實際檔案偏移必須依 PT_LOAD 轉換；不要把 Cpp2IL 輸出中的原始 disassembly 當成正確位址的機器碼。
+> This technical record includes historical versions and measurements. For current setup and supported workflows, see [the main guide](../README.md).
 
-## 遊戲邏輯
+## sample
 
-- `PopupRiftSweepMinigame.PlayTiming`（0x57e6ed8）每次以 `Random.Range(minRoundTripTime, maxRoundTripTime)` 抽一次往返時間 `T`，從位置 0 開始，速度設為 `2/T`。
-- `TimingGauge.Update`（0x57c4680）每幀以 `position += velocity * Time.unscaledDeltaTime` 更新；條形模式到 0 或 1 時夾到端點並反向。端點超出的部分不會按理想反射保留。
-- `TimingBarGauge.ToX`（0x57c4308）把內部位置轉為 `(position - 0.5) * trackWidth`。畫面必須保持完整、未遮擋；縮放後的像素座標不是遊戲內部座標。
-- `TimingGauge.Judge`（0x57c47bc）以 `abs(position - center)` 對比各判定區寬的一半；條形模式直接使用此距離。`ShowResultAsync` 先停止指針，再進行判定。
-- 唯讀執行期資料顯示本次樣本的 `perfectRatio=0.04`、`coolRatio=0.2`、`niceRatio=0.4`、`minRoundTripTime=0.7`、`maxRoundTripTime=1.8`。這些是樣本版本和畫面設定的觀察值，其他版本或內容可能不同。
+- Android 1.1.6, versionCode 120733181, arm64-v8a. The three APKs installed by the emulator are consistent with the SHA-256 of the local save file; the arm64 split is `7fdd866a18ae22c139e84be7ab2c5a2dded7a5e000961f3cd3e49c12cb662103`.
+- `libil2cpp.so` SHA-256: `1223d55a9903364c283fac07f96102410c8adec128add3888e9cb4fb80c67e9c`. The following addresses are ELF virtual addresses, the actual file offset must be converted according to PT_LOAD; do not regard the original disassembly in the Cpp2IL output as the machine code of the correct address.
 
-## 助手的模型和限制
+## Game logic
 
-助手從畫面追蹤指針和黃色區中心；使用同方向一段時間內的成對速度中位數估計速度，以降低擷取時間抖動。它只預測目前這一趟，不假設能無損穿過端點反彈；觀察到反向後重新估速。校準會估算畫面及輸入延遲，並以每次實際停點修正本機的延遲設定。此模型不讀取或修改遊戲記憶體，也不依賴 root。
+- `PopupRiftSweepMinigame.PlayTiming` (0x57e6ed8) pumps a round trip time `T` with `Random.Range(minRoundTripTime, maxRoundTripTime)` each time, starting from position 0, and the speed is set to `2/T`.
+- `TimingGauge.Update` (0x57c4680) Updates with `position += velocity * Time.unscaledDeltaTime` every frame; clip to endpoint and reverse when bar mode reaches 0 or 1. The portion beyond the endpoint is not preserved by ideal reflection.
+- `TimingBarGauge.ToX` (0x57c4308) converts the internal location to `(position - 0.5) * trackWidth`. The picture must remain intact and unobstructed; the scaled pixel coordinates are not internal game coordinates.
+- `TimingGauge.Judge` (0x57c47bc) compares half of the width of each judgment area with `abs(position - center)`; bar mode uses this distance directly. `ShowResultAsync` Stop the pointer first and then make a judgment.
+- The read-only execution period data shows `perfectRatio=0.04`, `coolRatio=0.2`, `niceRatio=0.4`, `minRoundTripTime=0.7`, and `maxRoundTripTime=1.8` of this sample. These are observations from sample builds and screen settings, other builds or content may differ.
 
-在雷電的一段無停止輸入觀察中，視窗擷取約 122 FPS；將畫面與同時唯讀的遊戲位置對照，估算顯示落後約 23 ms。ADB 串流的另一段觀察估算約 100 ms。這些數字包含採樣與同步誤差，不能視為其他電腦的固定延遲。視窗觀察離線重播中，除最初缺少完整比對資料的穿越之外，後續四次預測均落入內部 Perfect 區間；這不是實際按鍵命中率。
+## Assistant models and limitations
 
-不能根據以上推斷每次必定命中：畫面更新、系統排程和輸入延遲均會波動。實際遊戲測試結果與執行檔驗證須另行報告。
+The assistant tracks the pointer and the center of the yellow area from the screen; uses the median of paired speeds in the same direction over a period of time to estimate the speed to reduce capture time jitter. It only predicts the current trip and does not assume that it can bounce through the endpoint without loss; it re-estimates the speed after observing the reverse direction. Calibration estimates picture and input lag and corrects the unit's lag settings with each actual stop. This model does not read or modify game memory and does not rely on root.
 
-## 視窗與空格實測
+In a non-stop input observation of Raiden, the window captured about 122 FPS; comparing the screen with the simultaneous read-only game position, it is estimated that the display lags about 23 ms. Another observation of the ADB stream estimates around 100 ms. These numbers include sampling and synchronization errors and should not be considered fixed delays for other computers. In the offline replay of the window observation, except for the initial crossing that lacked complete comparison data, the subsequent four predictions all fell into the internal Perfect interval; this is not the actual key hit rate.
 
-雷電模擬器在開始／停止位置綁定空格後，使用 Windows 視窗擷取與模擬空格操作；不使用 ADB 或 root。一次失準後於第二次停止前關閉重開遊戲，票數仍為 10。其後一次手動測試腳本與一次完整 Qt 介面測試各完成一輪，依凍結畫面計算兩次均落在黃色區域；其中 Qt 介面一輪的兩次中心誤差約為畫面寬度的 0.81% 和 0.13%。另一次完整介面測試未保留兩次截圖，因此不推斷判定。這只是少量同機樣本，並非命中率或其他電腦的保證。
+It cannot be inferred from the above that every hit is guaranteed: screen updates, system scheduling, and input lag will all fluctuate. Actual game test results and execution file verification must be reported separately.
 
-## 擷取間隔與失準分析
+## Actual measurement of windows and spaces
 
-一次舊版介面執行的擷取間隔中位數約 6.3 ms、95 百分位 28.4 ms、最大值 131 ms；預覽整張圖與判定共用執行緒。將視窗預覽移至獨立執行緒、延後寫入校準檔後，一段沒有遊戲輸入的觀察得到中位數 8.9 ms、95 百分位 17.8 ms、最大值 97.1 ms。兩次並非相同負載，不可視為受控效能比較。
+After binding a space at the start/stop position, the Thunderbolt Simulator uses Windows windows to capture and simulate space operations; does not use ADB or root. After one miscalculation, the game is closed and reopened before the second stop, and the vote count is still 10. Subsequently, a manual test script and a full Qt interface test were completed each, and both calculations based on the frozen screen fell into the yellow area; the two center errors of the Qt interface round were approximately 0.81% and 0.13% of the screen width. Another complete interface test did not retain two screenshots, so the judgment was not inferred. This is just a small sample of the same computer and is not a guarantee of hit rate or other computers.
 
-修改後一次視窗與空格的實測中，第一次畫面判讀黃色，第二次畫面與使用者觀察均為過早、紫色。依連續畫面估算，兩次從發出按鍵前所見位置到凍結位置的時間分別約 80 ms、65 ms；第二次黃色半寬約只容許 7 ms。此估算包含畫面延遲與擷取誤差，不能當作精確的遊戲內事件時間，但顯示目前流程仍不能保證命中。新保護會在視窗擷取間隔超過 35 ms 時重新估速，且系統未能在預定時刻後 6 ms 內醒來時取消該次尚未發送的按鍵，等待下一次通過。它無法偵測所有輸入或呈現延遲變化。
+## Capture interval and misalignment analysis
+
+The median acquisition interval for an execution of the old interface is approximately 6.3 ms, the 95th percentile is 28.4 ms, and the maximum value is 131 ms; previewing the entire image and judging share the same thread. After moving the window preview to a separate thread and defer writing the calibration file, an observation with no game input resulted in a median of 8.9 ms, a 95th percentile of 17.8 ms, and a maximum of 97.1 ms. The two loads are not the same and cannot be considered a controlled performance comparison.
+
+In the actual measurement of the windows and spaces after the modification, the first screen was interpreted as yellow, and the second screen and user observation were both premature and purple. Based on the estimation of the continuous screen, the time from the position seen before the button is pressed to the frozen position is about 80 ms and 65 ms respectively; the second yellow half-width only allows about 7 ms. This estimate includes screen delays and capture errors, and cannot be regarded as an accurate time of in-game events, but it shows that the current process still cannot guarantee a hit. The new protection will re-estimate the speed when the window capture interval exceeds 35 ms, and the system fails to wake up within 6 ms after the scheduled time to cancel the unsent keystrokes and wait for the next pass. It cannot detect all inputs or exhibit latency changes.

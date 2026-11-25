@@ -1,63 +1,67 @@
-# 本地驗證紀錄 — 2026-10-24
+# Local verification record — 2026-10-24
 
-版本：1.7.0-adb；基礎上游提交：c1263f7。
+English · [繁體中文](VALIDATION-ADB.zh-TW.md) · [日本語](VALIDATION-ADB.ja.md) · [한국어](VALIDATION-ADB.ko.md)
 
-## 已完成
+> This technical record includes historical versions and measurements. For current setup and supported workflows, see [the main guide](../README.md).
 
-- `python selfcheck.py`：193 項測試通過。涵蓋既有模擬器回歸、新增 ADB 傳輸、指定序號、逾時回收、座標轉換、過期畫面、暫停、前景檢查、方向／停幀門檻、長螢幕與結算定位。
-- `python replay.py`：隨附範例辨識為 RESULT，信心值約 0.845。
-- `python -m compileall -q fisher adb_app.py`：通過。
-- Tkinter 實際啟動；1020×920 視窗的主要按鈕與各區塊皆位於可見範圍。介面圖片已目視檢查，設定分頁避免操作區溢出。
-- 手機透過 USB ADB 連線，解析度 1200×2670、遊戲直向。沒有改動手機解析度、安裝手機程式或修改遊戲檔案。
-- 原生 PNG 截圖三次約 1411 / 1276 / 1445 ms。改為 AVC 串流後，主機解碼輸出穩定段約每 17 ms 一幀；實際辨識循環約 18～22 fps，會因結算辨識與輸入呼叫暫降。
-- 最新短段實測約 61 秒：控制器記錄 3 次下鉤、3 次結果事件，完成結算返回準備下鉤，因次數上限暫停。其他短段亦觀察到黃條預約與點擊。
-- 測試用截圖與原始紀錄留在專案外的工作目錄；未加入公開壓縮包或提交。
+Version: 1.7.0-adb; base upstream commit: c1263f7.
 
-## 尚未證明
+## Completed
 
-- 未量得裝置端影像呈現到實際觸控的精確延遲；60ms 串流延遲、80ms 觸控補償、12ms 不確定餘量仍為可調初值。
-- 3 次結果事件不代表所有黃條都命中，也不是稀有魚成功率或長時間穩定性的統計。
-- 未驗證所有手機、所有 DPI／寬高比、不同 Android 版本、數小時連續運行，以及真正拔線重連。斷線、旋轉與停滯的防護已有離線回歸與程式檢查；不可稱為所有裝置上的實測。
-- 原有免安裝 Windows 包仍以模擬器入口為主；手機模式以本地 `start_adb.bat` / `adb_app.py` 啟動，需本機 Python、ADB、FFmpeg。
+- `python selfcheck.py`: 193 tests passed. Covers the return of existing simulators, new ADB transfers, designated serial numbers, timeout recycling, coordinate conversion, expired screens, pauses, foreground checks, direction/freeze frame thresholds, long screens and settlement positioning.
+- `python replay.py`: The attached example is identified as RESULT, with a confidence value of approximately 0.845.
+- `python -m compileall -q fisher adb_app.py`: Passed.
+- Tkinter actually starts; the main buttons and blocks of the 1020×920 window are all visible. The interface image has been visually inspected, and paging is set to avoid overflow of the operating area.
+- The mobile phone is connected via USB ADB, with a resolution of 1200×2670 and game orientation. No changes were made to the mobile phone resolution, mobile phone programs were installed or game files were modified.
+- Native PNG screenshot three times around 1411 / 1276 / 1445 ms. After changing to AVC streaming, the stable segment of host decoding output is about one frame every 17 ms; the actual recognition cycle is about 18~22 fps, which will drop due to settlement recognition and input calls.
+- The latest short-term measurement is about 61 seconds: the controller records 3 hooking and 3 result events, completes settlement and returns to prepare for hooking, and pauses due to the upper limit of times. Yellow bar reservations and clicks were also observed in other short segments.
+- The test screenshots and original records are left in the working directory outside the project; they are not added to the public compressed package or submitted.
 
-## 1.7.1-adb 追加驗證
+## not proven yet
 
-- 自檢 198 項通過，新增真實拉鉤控件裁切、移除文字仍可辨識、缺少面板或按鈕時不誤判、黃條不誤判成拉鉤，以及新幀事件喚醒回歸。
-- 使用者提供的繁體提示畫面，原版模板路徑無法穩定辨識；新幾何判定輸出 BITE，控制器首個確認畫面即可提出 HOOK，不檢查進度條是否跑完。
-- 實機觀察到 BITE 後發送 HOOK，隨後進入 TIMING。正常與黃條階段的辨識循環穩定段約 55～60 FPS，執行同步 ADB 輸入時會暫降。
-- 來源串流原本已接近 60 FPS；本次提升的是消費新畫面的辨識頻率，不能宣稱原始串流或實際觸控延遲等比例改善。
-- 實測另遇金色紀錄頁的古銅重量圖示。改以高信心灰階形狀定位，再保留原版彩色面板／暗背景／重量圖示的多條件確認，並新增裁切回歸。
-- 不代表所有黃條命中、所有魚種或長時間連續操作均已驗證。
+- The precise delay from image presentation to actual touch on the device has not been measured; the 60ms streaming delay, 80ms touch compensation, and 12ms uncertainty margin are still adjustable initial values.
+- 3 result events does not represent a hit for all yellow bars, nor is it a statistic for rare fish success rate or stability over time.
+- Not verified on all phones, all DPI/aspect ratios, different Android versions, running for hours, and actually unplugging and reconnecting. Protection against disconnection, rotation, and stagnation has been subject to offline regression and program checking; it cannot be called actual testing on all devices.
+- The original installation-free Windows package is still based on the emulator entrance; the mobile phone mode is started with local `start_adb.bat` / `adb_app.py`, which requires native Python, ADB, and FFmpeg.
 
-## 1.7.2-adb 結算等待
+## 1.7.1-adb additional verification
 
-- 自檢 200 項通過；新增結算連續確認、0.25 秒首次嘗試、0.35 秒重試、未知畫面停止輸入及舊設定保留測試。
-- 實機新魚結果頁在測試時刻約 17.37 秒出現確認狀態，17.58 秒的介面取樣已顯示首次 CLOSE，18.87 秒確認返回 IDLE 並因下鉤上限暫停。介面取樣不是精確的裝置動畫時間；本段可觀察到約 1.5 秒內返回，不能保證每次結果頁均同樣快。
-- Tkinter 1020×920 的新增設定與操作區通過可見範圍檢查；編譯檢查、原始碼包產生通過。
+- 198 self-inspections passed, including the addition of real hook control cropping, removal of text that can still be recognized, no misjudgment when panels or buttons are missing, yellow bars not misjudged as pull hooks, and new frame event wake-up returns.
+- In the Traditional Chinese prompt screen provided by the user, the original template path cannot be recognized stably; with the new geometry judgment output BITE, the controller can propose HOOK on the first confirmation screen without checking whether the progress bar has been completed.
+- After the actual machine observes BITE, it sends HOOK and then enters TIMING. The stable section of the recognition cycle in the normal and yellow bar stages is about 55 to 60 FPS, and will drop temporarily when performing synchronous ADB input.
+- The source stream is already close to 60 FPS; this time the increase is the recognition frequency of consuming new images, and we cannot claim that the original stream or the actual touch delay is improved in proportion.
+- During the actual measurement, we also encountered an illustration of the bronze weight on the golden record page. Changed to high-confidence grayscale shape positioning, retained the multi-condition confirmation of the original color panel/dark background/weight icon, and added crop regression.
+- This does not mean that all yellow bar hits, all fish species, or long periods of continuous operation have been verified.
 
-## 1.7.3-adb 操作變化
+## 1.7.2-adb settlement waiting
 
-- 結算等待預設與目前本機設定均改為 1 秒。
-- 203 項自檢通過；包含隨機落點有界、黃條不加入反應等待、短按為同點起訖、反應期間暫停不發送輸入。
-- 勾選操作模擬的實機短段完成 1 次下鉤、1 次結果事件並返回 IDLE，因次數上限暫停。短按與收下操作已被目前手機接受；不能據此推論全部魚種命中率或長時間穩定性。
-- 新增勾選項後，1020×920 視窗的操作區與主要按鈕仍在可見範圍內。
+- 200 self-test items passed; new settlement continuous confirmation, 0.25 second first attempt, 0.35 second retry, unknown screen stop input and old settings retention test.
+- The actual new fish result page appeared in the confirmation state at about 17.37 seconds of the test time. The interface sampling at 17.58 seconds showed the first CLOSE. The confirmation returned to IDLE at 18.87 seconds and was paused due to the upper hook limit. Interface sampling is not an accurate device animation time; this paragraph can be observed to return in about 1.5 seconds, and there is no guarantee that every result page will be equally fast.
+- The new settings and operation areas of Tkinter 1020×920 passed the visible range check; the compilation check and source code package generation passed.
 
-## 1.7.4-adb 前景誤停
+## 1.7.3-adb operation changes
 
-- 206 項自檢通過。新增暫時查詢失敗後恢復、持續同一其他 App 才暫停、過期前景資料阻止輸入但不清除運行狀態的回歸。
-- 手機唯讀觀察 20 秒正常結束；199 次主機端取樣中有 1 次未確認前景，結束時前景有效。觀察模式沒有向遊戲送出輸入，不能當作長時間自動操作驗證。
-- 原誤停的靜態原因：任何單次例外／非遊戲焦點都立即清除 active，且輸入前看到過期前景證據也直接宣稱離開遊戲。已分離輸入阻擋與正式暫停條件；未重現使用者當時的特定觸發事件。
-- scrcpy 4.0 的兩次 120 FPS 設定試驗都在約 4 秒異常結束；第二段 242 幀、時間戳跨度約 3.954 秒，有效幀率約 60.95。這是截斷片段，不能推論硬體或遊戲的絕對上限。此次未交付 120 FPS 後端。
+- The settlement wait default and current local setting are both changed to 1 second.
+- 203 self-tests passed; including bounded random drop points, yellow bars not included in response waiting, short press to start and end at the same point, pause during response and no input is sent.
+- Check the short section of the actual machine for operation simulation to complete 1 hook and 1 result event and return to IDLE, which is suspended due to the upper limit of times. The short press and close operations have been accepted by current mobile phones; the hit rate or long-term stability of all fish species cannot be inferred based on this.
+- After adding the check option, the operation area and main buttons of the 1020×920 window are still visible.
+
+## 1.7.4-adb prospect stopped unexpectedly
+
+- 206 self-tests passed. Added regressions such as resuming after a temporary query fails, pausing when the same app is continued in other apps, and preventing input of expired prospect data but not clearing the running status.
+- The mobile phone read-only observation ends normally for 20 seconds; 1 out of 199 host-side samples did not confirm the foreground, and the foreground was valid at the end. Observation mode does not send input to the game and cannot be used as a verification of long-term automatic operation.
+- The original static reason for the accidental stop: any single exception/non-game focus is immediately cleared from active, and if you see evidence of expired prospects before entering, you will directly declare to leave the game. Input blocking and formal pause conditions have been separated; user-specific trigger events at the time have not been reproduced.
+- The two 120 FPS setting experiments of scrcpy 4.0 both ended abnormally in about 4 seconds; the second section has 242 frames, the timestamp spans about 3.954 seconds, and the effective frame rate is about 60.95. This is a truncated snippet and no inference can be made about the absolute upper limits of hardware or gaming. The 120 FPS backend is not delivered this time.
 
 
-## 1.7.5-adb 預覽
+## 1.7.5-adb preview
 
-206 項自檢通過。實際 Tkinter 連接手機、維持觀察模式約10秒，末段量得辨識54.0 FPS、預覽55.1 FPS（最近90次成功繪製的主機端計時）。舊預覽每150ms發布一次，理論上限約6.7 FPS，不能與辨識FPS混用。關閉預覽與中斷連線會清除預覽計數；此測試未發送遊戲輸入，也不代表所有狀態都維持55 FPS。
+206 self-tests passed. In fact, Tkinter connected to the mobile phone and maintained the observation mode for about 10 seconds. The final measurement achieved 54.0 FPS for recognition and 55.1 FPS for preview (the timing of the last 90 successful drawings on the host side). The old preview is released every 150ms, with a theoretical upper limit of about 6.7 FPS, which cannot be mixed with the identified FPS. Closing the preview and disconnecting will clear the preview count; this test does not send game input and does not mean that 55 FPS will be maintained in all states.
 
 
-## 1.8.1-adb 響應式與手機預覽
+## 1.8.1-adb responsive and mobile preview
 
-- 239 項自檢通過，包含不同尺寸／長寬比排列、窄視窗操作列、完整手機預覽資料、最大化／還原與鍵盤開啟放大預覽。
-- Windows Qt 介面以 680×600、700×650、700×850、900×700、900×1100、1250×900 及 2560×1440 最大化檢查；主要控制可見，窄直向設定內容可捲動。
-- 真機唯讀觀察：手機串流為 360×800，完整預覽畫面保持 360×800；約 59.4 FPS 辨識、55.6 FPS 實際預覽繪製。本段沒有發送遊戲輸入；動畫、桌面縮放和其他手機尺寸的效能可能不同。
-- 使用模擬後端測試裝置選擇、連線、開始、暫停與中斷；未在本次介面驗證中測試長時間自動釣魚。
+- 239 self-tests passed, including different size/aspect ratio arrangements, narrow window operation bar, complete mobile preview data, maximize/restore and keyboard-enabled enlarged preview.
+- The Windows Qt interface is maximized for inspection at 680×600, 700×650, 700×850, 900×700, 900×1100, 1250×900 and 2560×1440; main controls are visible, and narrow vertical settings can be scrolled.
+- Real machine read-only observation: mobile phone streaming is 360×800, and the full preview screen remains at 360×800; approximately 59.4 FPS for recognition and 55.6 FPS for actual preview drawing. No game input is sent in this section; performance of animations, desktop scaling, and other phone sizes may vary.
+- Use the simulated backend to test device selection, connection, start, pause and interruption; long-term automatic phishing was not tested in this interface verification.

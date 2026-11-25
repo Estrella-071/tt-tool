@@ -1,6 +1,8 @@
 # Windows x64 installer
 
-Download [tt-tool-1.0.5-windows-x64-setup.exe](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.5/tt-tool-1.0.5-windows-x64-setup.exe) for Windows 10 22H2 or Windows 11 on x64. The installer includes Python, Qt and the local image recognition dependencies. Phone connectivity also requires [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) and [FFmpeg](https://ffmpeg.org/download.html#build-windows).
+[English](INSTALLER.md) · [繁體中文](INSTALLER.zh-TW.md) · [日本語](INSTALLER.ja.md) · [한국어](INSTALLER.ko.md)
+
+Download [tt-tool-1.0.6-windows-x64-setup.exe](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.6/tt-tool-1.0.6-windows-x64-setup.exe) for Windows 10 22H2 or Windows 11 on x64. The installer includes Python, Qt and the local image recognition dependencies. Phone connectivity also requires [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) and [FFmpeg](https://ffmpeg.org/download.html#build-windows).
 
 ## Install and open tt tool
 
@@ -15,7 +17,7 @@ tt tool looks for `adb.exe` and `ffmpeg.exe` on your user `Path`. Open **Connect
 
 ## Update tt tool
 
-**Upgrading from the old version numbers.** If tt tool shows v1.1.0, v1.2.0, or v1.3.0, close it and run the v1.0.5 installer in the existing installation folder. This one-time manual update preserves your settings and enables in-app updates from the new version series. The historical releases v1.0.2 through v1.0.4 still contain their original installers and checksums.
+**Upgrading from the old version numbers.** If tt tool shows v1.1.0, v1.2.0, or v1.3.0, close it and run the v1.0.6 installer in the existing installation folder. This one-time manual update preserves your settings and enables in-app updates from the new version series. The historical releases v1.0.2 through v1.0.4 still contain their original installers and checksums.
 
 For an installed copy of v1.0.5 or newer, choose **Maintenance → Check for updates**. The app checks the latest stable release on GitHub when you ask. If a verified installer is available, **Download and install** starts a download you can cancel. After comparing the SHA-256 hash with the release asset's digest, the app asks for permission to stop the current activity, close the window and install the update in place. Setup shows progress and the updater reopens tt tool after installation.
 
@@ -31,10 +33,10 @@ Settings, calibration and local diagnostic logs remain in `%LOCALAPPDATA%\tt-too
 
 ## Verify a download
 
-Setup identifies **71** as the publisher. The installer has no Authenticode signature, so Windows may display **Unknown publisher**. For a manual download, compare its SHA-256 hash with the [checksum manifest in the same GitHub release](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.5/SHA256SUMS.txt).
+Setup identifies **71** as the publisher. The installer has no Authenticode signature, so Windows may display **Unknown publisher**. For a manual download, compare its SHA-256 hash with the [checksum manifest in the same GitHub release](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.6/SHA256SUMS.txt).
 
 ```powershell
-Get-FileHash .\tt-tool-1.0.5-windows-x64-setup.exe -Algorithm SHA256
+Get-FileHash .\tt-tool-1.0.6-windows-x64-setup.exe -Algorithm SHA256
 ```
 
 ## Build and verify an installer

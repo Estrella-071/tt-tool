@@ -4,7 +4,7 @@
 
 tt tool 是 Windows 上的 Android 手機活動助手，支援《塔塔冒險隊》（Clash of Critters）的釣魚與遺跡探險。透過 USB 連線預覽手機畫面，辨識在電腦上執行。選擇活動並按下開始後才會操作手機。
 
-**[下載 Windows x64 安裝程式](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.5/tt-tool-1.0.5-windows-x64-setup.exe)** · [v1.0.5 版本資訊與檔案校驗](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.5)
+**[下載 Windows x64 安裝程式](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.6/tt-tool-1.0.6-windows-x64-setup.exe)** · [v1.0.6 版本資訊與檔案校驗](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.6)
 
 ![繁體中文主視窗，顯示連線區、手機預覽、釣魚與遺跡探險切換，以及右下角的語言選單](docs/images/tt-tool/zh_TW-main.png)
 
@@ -12,7 +12,7 @@ tt tool 是 Windows 上的 Android 手機活動助手，支援《塔塔冒險隊
 
 1. 在 Windows 10 22H2 或 Windows 11（x64）開啟安裝程式並選擇語言。安裝程式已包含 Python 與 Qt。首次安裝可調整安裝資料夾，開始選單捷徑預設勾選，桌面捷徑可自行選用。完成安裝時可選擇是否開啟 **tt tool**。工具首次開啟時會沿用安裝語言。
 2. 安裝 [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) 和 [FFmpeg](https://ffmpeg.org/download.html#build-windows)。若工具找不到其中一個執行檔，從裝置選單開啟 **連線工具**，指定檔案後選擇 **檢查並重試**。
-3. 從程式中的 **USB 連線教學** 或 [各品牌指南](docs/USB-DEBUGGING.md) 查詢如何開啟 USB 偵錯，以支援資料傳輸的 USB 線連接電腦，並在手機上允許偵錯。工具會自動連線至唯一已授權的手機。有多台時，選好裝置後按 **連線手機**。
+3. 從程式中的 **USB 連線教學** 或 [各品牌指南](docs/USB-DEBUGGING.zh-TW.md) 查詢如何開啟 USB 偵錯，以支援資料傳輸的 USB 線連接電腦，並在手機上允許偵錯。工具會自動連線至唯一已授權的手機。有多台時，選好裝置後按 **連線手機**。
 4. 將遊戲維持直向並切到前景，進入對應的釣魚或遺跡探險畫面。確認預覽完整後按 **開始釣魚** 或 **開始探險**。工具視窗中，空白鍵可開始、暫停及繼續，Esc 可結束。從右下方切換介面語言。
 
 若未選擇任何外部捷徑，可從安裝資料夾內的 **tt tool** 捷徑啟動。
@@ -25,21 +25,21 @@ tt tool 是 Windows 上的 Android 手機活動助手，支援《塔塔冒險隊
 
 ![繁體中文遺跡探險設定，左側是示意畫面上的選區和操作點，右側可調整一般與紅色寶藏的撤離門檻](docs/images/tt-tool/zh_TW-settings.png)
 
-*設定畫面使用示意預覽。實際辨識會受手機、串流延遲及遊戲版面變化影響。詳細行為見 [ADB 手機模式](docs/ADB.md)。*
+*設定畫面使用示意預覽。實際辨識會受手機、串流延遲及遊戲版面變化影響。詳細行為見 [ADB 手機模式](docs/ADB.zh-TW.md)。*
 
 ## 更新與維護
 
 從視窗底部選擇 **工具維護 → 檢查更新**。安裝版從 v1.0.5 起可在程式內下載並校驗新版本，經你確認後更新原安裝位置。
 
-如果程式顯示 v1.1.0、v1.2.0 或 v1.3.0，請關閉 tt tool，再手動執行 v1.0.5 安裝程式一次。設定會保留。需要手動下載時，可選擇 **開啟發布頁**。
+如果程式顯示 v1.1.0、v1.2.0 或 v1.3.0，請關閉 tt tool，再手動執行 v1.0.6 安裝程式一次。設定會保留。需要手動下載時，可選擇 **開啟發布頁**。
 
-**工具維護** 也可開啟程式與資料資料夾，或啟動解除安裝。解除安裝前會顯示安裝位置。更新會保留資料，解除安裝也預設保留。勾選 **一併清除 tt tool 的本機資料** 才會移除。安裝程式未簽署，Windows 可能顯示「未知的發行者」。 [Windows 安裝指南（英文）](docs/INSTALLER.md)
+**工具維護** 也可開啟程式與資料資料夾，或啟動解除安裝。解除安裝前會顯示安裝位置。更新會保留資料，解除安裝也預設保留。勾選 **一併清除 tt tool 的本機資料** 才會移除。安裝程式未簽署，Windows 可能顯示「未知的發行者」。 [Windows 安裝指南](docs/INSTALLER.zh-TW.md)
 
 ## 排查與本機資料
 
 - **手機未出現**：執行 `adb devices` 並確認裝置顯示為 `device`。若顯示 `unauthorized`，解鎖手機並允許本機 USB 偵錯。部分手機也需要製造商提供的 Windows USB 驅動程式。
 - **裝置已連線，畫面仍空白**：確認 `ffmpeg -version` 可執行，檢查手機直向且畫面未鎖定，再嘗試重新連線。黑邊或裁切可在設定中調整。
-- 安裝版的設定、校正與診斷記錄存於 `%LOCALAPPDATA%\tt-tool\data`。解除安裝預設保留資料。影像在本機處理，工具不會自動上傳。 [資料說明](docs/PRIVACY.md)
+- 安裝版的設定、校正與診斷記錄存於 `%LOCALAPPDATA%\tt-tool\data`。解除安裝預設保留資料。影像在本機處理，工具不會自動上傳。 [資料說明](docs/PRIVACY.zh-TW.md)
 
 ## 從原始碼執行與開發
 
@@ -60,7 +60,7 @@ py -3.12 -m venv .venv
 | [`fisher/phone_vision.py`](fisher/phone_vision.py)、[`fisher/ruins.py`](fisher/ruins.py) | 手機畫面的辨識與探險決策 |
 | [`tests/`](tests/) | 去識別化測試素材與離線回歸測試 |
 
-執行 `.\.venv\Scripts\python.exe selfcheck.py` 進行離線回歸。需要重建 Windows 安裝程式時，見 [安裝包建置與驗證](docs/INSTALLER.md)。舊版模擬器操作說明保存在 [模擬器手冊](docs/EMULATOR.md)。
+執行 `.\.venv\Scripts\python.exe selfcheck.py` 進行離線回歸。需要重建 Windows 安裝程式時，見 [安裝包建置與驗證](docs/INSTALLER.zh-TW.md)。舊版模擬器操作說明保存在 [模擬器手冊](docs/EMULATOR.zh-TW.md)。
 
 ## 貢獻
 
@@ -68,4 +68,4 @@ py -3.12 -m venv .venv
 
 歡迎送出 Pull Request。說明修改的行為與驗證結果，辨識修正可附去識別化的測試畫面與回歸案例。新增介面文字時，請更新 [語系表](fisher/i18n.py) 並確認四種語言。
 
-原始碼採 [GPL-3.0-only](LICENSE)。來源、第三方授權與遊戲畫面權利見 [NOTICE](NOTICE.md)。使用前請確認相關遊戲及服務規則。
+原始碼採 [GPL-3.0-only](LICENSE)。來源、第三方授權與遊戲畫面權利見 [NOTICE](NOTICE.zh-TW.md)。使用前請確認相關遊戲及服務規則。

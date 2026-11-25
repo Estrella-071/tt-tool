@@ -1,6 +1,12 @@
 # Changelog
 
+English · [繁體中文](CHANGELOG.zh-TW.md) · [日本語](CHANGELOG.ja.md) · [한국어](CHANGELOG.ko.md)
+
 User-facing changes to the Windows releases. The v1.0.2, v1.0.3, and v1.0.4 releases were previously called v1.1.0, v1.2.0, and v1.3.0. Archived installers still display their original numbers.
+
+## [v1.0.6](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.6)
+
+Improve fishing prediction timing and align the title bar. Documentation is available in four languages.
 
 ## [v1.0.5](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.5)
 

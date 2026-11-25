@@ -1,99 +1,102 @@
-# ADB 手機模式
+# ADB mobile mode
 
-此本地修改版保留原版 `main.py` 模擬器介面，新增 `adb_app.py` 手機介面。
-使用 Windows 電腦透過 USB 連接 Android 手機；不需安裝手機 APK 或 root。
+English · [繁體中文](ADB.zh-TW.md) · [日本語](ADB.ja.md) · [한국어](ADB.ko.md)
 
-## 啟動
+Connect an Android phone over USB from a Windows computer. Phone-side installation and root access are not required.
 
-1. 安裝 Python 3.10+、Android platform-tools、FFmpeg，將 adb 與 ffmpeg 加入 PATH。
-2. 在專案目錄執行 `python -m pip install -r requirements.txt`。
-3. 手機開啟 USB 偵錯，確認電腦授權，遊戲維持直向且在前景。
-4. 執行 `python qt_fishing.py` 或雙擊 `start_adb.bat` 開啟圓角介面；舊版介面仍可用 `python adb_app.py` 開啟。
-5. 偵測到一台已授權手機時，介面會自動連線並顯示畫面；有多台手機時選擇裝置並連線。
-6. 選擇活動後開啟「設定」，選擇「自動學習」或「手動設定」，在手機預覽拖曳範圍角點與操作點；時序與撤離門檻可用滑桿調整，並可恢復預設。兩種模式的設定分開保存，儲存後立即套用。
-7. 按「開始釣魚」或空白鍵啟動，再按一次暫停；暫停期間保留計數與工作階段時間。按「結束」或 Esc 結束工作階段，下次開始重新計數。
+## Getting started
 
-手機釣魚在下鉤或拉鉤後若畫面未轉換，會確認畫面仍穩定後自動重試；同一次下鉤的重試不會重複顯示計數。暫時無法確認畫面時會持續觀察，恢復辨識後繼續。設定下鉤次數上限時，重試也會計入操作次數上限；時間上限仍然有效。
+1. Install the Windows x64 release and prepare Android SDK Platform-Tools and FFmpeg as described in the [installer guide](INSTALLER.md).
+2. On the phone, enable USB debugging, authorize this computer, and open the game in portrait orientation.
+3. Open tt tool. It connects automatically when exactly one authorized phone is available. Otherwise, select the phone and connect.
+4. After selecting the activity, open "Settings", select "Automatic Learning" or "Manual Settings", and preview the corners and operating points of the drag range on your phone; the timing and evacuation threshold can be adjusted with the slider, and the default can be restored. The settings of the two modes are saved separately and applied immediately after saving.
+5. Press "Start Fishing" or the space bar to start, and press again to pause; the count and session time are retained during the pause. Press "End" or Esc to end the session and start counting again next time.
 
-## 遺跡探險
+If the screen does not change after setting the hook or pulling the hook, mobile phone fishing will automatically retry after confirming that the screen is still stable; retrying the same hook will not display the count repeatedly. When the screen cannot be confirmed temporarily, it will continue to observe and continue after the recognition is restored. When setting the upper limit of the number of hooks, retries will also be included in the upper limit of the number of operations; the time limit is still valid.
 
-在主畫面選擇「遺跡探險」，切換時會結束原先執行的模式並重新連線；將手機開在遺跡探險頁面，按「開始探險」或空白鍵。程式辨識入口、前進、寶藏彈窗和結算，收下後繼續下一輪。空白鍵可暫停與繼續；按「結束」或 Esc 結束工作階段。
+## ruins adventure
 
-遇到寶箱獎勵頁時，程式會辨識底部按鈕，自動開啟下一組或剩餘全部寶箱，並確認最後的獎勵，再繼續探險；按鈕辨識不依賴文字。
+Select "Ruins Adventure" on the main screen. When switching, the originally executed mode will end and reconnect; open the phone on the ruins exploration page and press "Start Adventure" or the space bar. The program recognizes the entrance, advancement, treasure pop-up window and settlement, and continues to the next round after accepting it. Use the space bar to pause and resume; press End or Esc to end the session.
 
-首領畫面以基本勝率加上隊友加成後的總勝率判斷，預設一般寶藏低於 45% 撤離、紅色寶藏低於 30% 撤離，兩項門檻可在探險設定各自調整或恢復預設。每次操作點一下並等待畫面變化；畫面持續不變時，經確認及等待後才重試。啟用模擬手動時，落點及按壓時間會在有限範圍內變化。首領勝率需要多張畫面確認；確認不了勝率、讀值互相矛盾，或寶藏類型不明且會影響決策時，持續觀察約 2.5 秒後自動戰鬥。介面顯示目前辨識到的勝率和決策；確認遊戲仍在前景及畫面有效後才會送出點擊。
+When encountering the treasure chest reward page, the program will recognize the button at the bottom, automatically open the next group or all remaining treasure chests, and confirm the final reward before continuing the adventure; button recognition does not rely on text.
 
-釣魚和探險都會依提示視窗的顏色、形狀和按鈕位置辨識遊戲錯誤，確認後按下綠色按鈕；若畫面仍未改變，會延長重試間隔。入口、拉鉤及領獎辨識不比對特定中文字樣。首領勝率仍需辨識畫面上的數字、百分號與加號。
+The boss screen is judged by the total winning rate after the basic winning rate plus teammate bonuses. By default, the evacuation rate for general treasures is less than 45%, and the evacuation rate for red treasures is less than 30%. The two thresholds can be adjusted or restored to default in the adventure settings. Click on each operation and wait for the screen to change; if the screen remains unchanged, try again after confirming and waiting. When simulated manual is enabled, the landing point and pressing time will change within a limited range. The boss's winning rate needs to be confirmed on multiple screens; if the winning rate cannot be confirmed, the readings are conflicting, or the treasure type is unknown and will affect the decision-making, continue to observe for about 2.5 seconds and then fight automatically. The interface displays the currently recognized winning rate and decisions; it will only send clicks after confirming that the game is still in the foreground and the screen is valid.
 
-如果 ADB 回報輸入結果不明，程式會等待畫面變化；釣魚在操作確認逾時且同一可操作畫面持續穩定時重試，探險則在畫面持續 12 秒後重新辨識。暫停、斷線或畫面無法確認時，會重新確認畫面後再操作。
+Fishing and exploration will identify game errors based on the color, shape and button position of the prompt window. After confirmation, press the green button; if the screen remains unchanged, the retry interval will be extended. The entrance, hook and prize recognition do not match specific Chinese characters. The boss win rate still requires identifying the numbers, percent sign, and plus sign on the screen.
 
-## 前景切換與黃條預測
+If ADB reports that the input result is unknown, the program will wait for the screen to change; fishing will retry when the operation confirmation times out and the same operable screen continues to be stable; exploration will re-recognize the screen after 12 seconds. When paused, disconnected or the screen cannot be confirmed, the screen will be reconfirmed before operation.
 
-其他 App 或浮動視窗取得前景時，工作階段保持啟用，暫停向手機送出點擊；確認遊戲重新取得前景後自動繼續。等待期間不推進與遊戲畫面相關的逾時，但工作階段時間上限仍按實際時間計算。這不會對其他 App 的小窗送出點擊。
+## Foreground switching and yellow bar prediction
 
-黃條使用投射至觸控生效時刻的相位預測，目標為黃條安全區的入口附近，並對有效時間設上限。前一輪已點擊後，只有連續兩張影格確認未被指針遮擋的新黃條，才可在較短間隔後計畫下一擊；無法確認變化時保留原本的重複點擊保護。預測仍受串流延遲、觸控延遲及辨識誤差影響。
+When other apps or floating windows obtain the foreground, the session remains enabled and clicks are paused on the phone; the game will automatically continue after confirming that it has regained the foreground. Timeouts related to the game screen will not be advanced during the waiting period, but the upper limit of the session time is still calculated based on the actual time. This will not send clicks to widgets in other apps.
 
-設定儲存後會在控制執行緒套用，切換模式不會結束工作階段或重置計數。自動學習從已確認的局部控制項修正有限的位置偏移；手動設定依使用者拖曳的範圍與點位操作，不讀取或更新自動校正。手機設定只存於本機 `phone_settings.json`，介面語言存於 `tt_tool_ui.json`。自動校正以 `device_profiles.json` 依裝置雜湊、解析度、活動與選區分開儲存；不保存原始裝置序號、帳號或截圖。設定中可重設自動校正。
+The yellow bar uses phase prediction projected to the moment when the touch takes effect. The target is near the entrance of the yellow bar safe zone and sets an upper limit on the effective time. After clicking in the previous round, only two consecutive frames confirm that the new yellow bar is not blocked by the pointer, and the next hit can be planned after a short interval; when the change cannot be confirmed, the original repeated click protection is retained. Predictions are still affected by streaming latency, touch latency, and recognition errors.
 
-## 截圖與時序
+After the settings are saved, they will be applied in the control thread. Switching activities ends the current session and reconnects. Automatically learns to correct limited positional offsets from confirmed local control items; manual settings are based on the range and point operations dragged by the user, and automatic correction is not read or updated. The mobile phone settings are only stored in the local machine `phone_settings.json`, and the interface language is stored in `tt_tool_ui.json`. Automatic corrections are stored separately as `device_profiles.json` by device hash, resolution, activity and selection; original device serial numbers, accounts or screenshots are not saved. Automatic correction can be reset in settings.
 
-初次連線用 PNG 截圖取得原始尺寸與選區。正常執行改用 `adb exec-out screenrecord` AVC 串流，FFmpeg 持續解碼成 360 像素寬的畫面；一個最新幀槽避免累積辨識工作。預覽只在開啟時繪製；介面分別顯示解碼接收、辨識和實際預覽繪製的幀率。
+## Screenshots and timing
 
-影像串流使用手機支援的 `--time-limit 0` 持續輸出；串流意外結束或裝置短暫掉線時會持續重連並等待新畫面。舊版 Android 若不支援此參數，需另行適配。FFmpeg 不存在、串流停住、裝置斷線、畫面過期、橫向旋轉或前景 App 改變時不會繼續送出點擊。前景檢查使用獨立執行緒，檢查結果過期也不輸入。
+Use a PNG screenshot to obtain the original size and selection when connecting for the first time. Normal execution uses the `adb exec-out screenrecord` AVC stream instead, and FFmpeg continuously decodes into 360-pixel-wide frames; a latest frame slot avoids accumulated recognition work. The preview is only drawn when it is turned on; the interface displays the frame rate of decoding reception, recognition and actual preview drawing respectively.
 
-黃條沿用原版往返相位預測，但先要求連續移動樣本並確認方向，避免中途開始時一律假設向右。長時間停幀或方向不明時不發送黃條點擊。目標時間窗口小於設定的不確定餘量時略過該趟。
+The video streaming uses the `--time-limit 0` supported by the mobile phone for continuous output; when the streaming ends unexpectedly or the device is temporarily disconnected, it will continue to reconnect and wait for new images. If older versions of Android do not support this parameter, additional adaptation is required. Clicks will no longer be sent when FFmpeg does not exist, the stream is stopped, the device is disconnected, the screen expires, the landscape is rotated, or the foreground app changes. The foreground check uses an independent execution thread, and the check results are not entered when they expire.
 
-`影像串流延遲估計` 預設 60ms，`觸控延遲補償` 預設 80ms，`時序不確定餘量` 預設 12ms，全部是初始估計，並非自動量得的端到端數據。需依 USB、手機、遊戲和 Windows 排程調整；不能保證每條魚或每次黃條命中。介面中的幀間隔、畫面年齡與輸入指令耗時是主機端量測，ADB 指令返回不等於觸控實際生效。
+The yellow bar follows the original round-trip phase prediction, but first requires continuous movement of the sample and confirmation of the direction to avoid assuming that it is always to the right at the beginning. Yellow bar clicks will not be sent when the frame is frozen for a long time or the direction is unknown. If the target time window is smaller than the set uncertainty margin, the trip will be skipped.
 
-## 手機畫面適配
+`Estimated stream latency (ms)` presets 60ms, `Touch latency compensation (ms)` presets 80ms, and `Timing uncertainty margin (ms)` presets 12ms. All are initial estimates, not automatically measured end-to-end data. Subject to USB, phone, game, and Windows schedule adjustments; not guaranteed for every fish or yellow bar hit. The frame interval, screen age and input command time in the interface are measured on the host side, and the return of the ADB command does not mean that the touch actually takes effect.
 
-以畫面寬度保留控件比例，長螢幕按底部對齊辨識操作區；紀錄彈窗以重量圖示定位後交由多條件判定確認。普通收下頁結合暗背景、金色標題區、綠色矩形按鈕及白色像素分布辨識，並獨立定位收下按鈕，不比對特定字形。框選用原始手機畫面比例；送出點擊時轉回手機實體像素。
+## Mobile phone screen adaptation
 
-## 驗證
+The proportion of controls is retained based on the width of the screen, and the operating area is aligned at the bottom for long screens; the record pop-up window is positioned with a weight icon and then submitted to multi-condition judgment for confirmation. The ordinary close page combines the dark background, golden title area, green rectangular button and white pixel distribution recognition, and independently positions the close button without comparing specific fonts. The frame selection uses the original mobile screen ratio; when sending a click, it returns to the physical pixels of the mobile phone.
 
-`python selfcheck.py` 執行既有回歸與手機端離線測試，不發送輸入。
-`python build_release.py` 建立排除本機資料的原始碼 ZIP。
+## verify
 
-手機實測、合成畫面測試、離線回放各自只能證明對應範圍，不能用測試數量推論長時間實機成功率。
+`python selfcheck.py` executes existing regression and mobile phone offline tests without sending input.
+`python build_release.py` creates a source code ZIP that excludes local data.
 
-## 1.7.1 更新
+Mobile phone actual testing, synthetic screen testing, and offline playback can only prove the corresponding range, and the number of tests cannot be used to infer the long-term actual success rate.
 
-預設辨識間隔為 0.01 秒，實際上限仍由手機編碼串流的出幀頻率決定。新畫面透過事件喚醒控制迴圈，並保留最新幀槽。測試手機的正常／黃條階段實測約 55～60 FPS，輸入指令和結算辨識期間會暫降；不是宣稱降低了相同倍數的端到端延遲。
+> The following sections record historical development versions and measurements.
 
-「用力拉」提示不再依賴含簡體字的 `bite.png` 模板：紫色提示面板、黃色橫條及下方紫色圓形按鈕共同確認後，首個確認畫面就拉鉤，不等待進度條結束。拉鉤按鈕獨立定位，送出後等待階段改變，避免重複拉鉤。
+Earlier mobile development builds required Python 3.10 or later. Their source setup used `python -m pip install -r requirements.txt`, then `python qt_fishing.py` or `start_adb.bat`. The historical emulator entry was `main.py`, and `python adb_app.py` opened the earlier mobile interface.
 
-## 1.7.2 結算加速
+## 1.7.1 Update
 
-手機模式首次確認結算頁後等待 0.25 秒即嘗試收下，仍停留在已確認結果頁時，按 0.35 秒基準間隔重試（保留原有微小抖動）。遊戲動畫尚未接受輸入時，不能保證第一次點擊就關閉。可在「時序調整」修改，重新連線套用；模擬器模式原有預設不變。
+The default recognition interval is 0.01 seconds, and the actual upper limit is still determined by the frame frequency of the mobile phone encoding stream. The new picture wakes up the control loop through events and retains the latest frame slot. The actual measurement of the normal/yellow bar phase of the mobile phone is about 55~60 FPS, which will drop temporarily during the input command and settlement recognition; it is not claimed to reduce the end-to-end delay by the same multiple.
 
-## 1.7.3 手動操作模擬
+The "Pull Hard" prompt no longer relies on the `bite.png` template with simplified Chinese characters: after the purple prompt panel, yellow horizontal bar and purple round button below are jointly confirmed, the first confirmation screen will pull the hook without waiting for the end of the progress bar. The retractor button is positioned independently and waits for stage changes after delivery to avoid repeated retraction.
 
-目前結算首次等待預設為 1 秒。勾選「模擬手動操作」時：
+## 1.7.2 Settlement acceleration
 
-- 點擊落點在中心附近、半徑為遊戲選區短邊 0.8% 的圓內變化，限制於選區內。
-- 下鉤增加 40～120ms、拉鉤增加 15～40ms、收下增加 30～90ms 的短暫反應時間。
-- 非黃條操作使用同座標按下／抬起，按壓 35～75ms，不拖曳。
-- 結算重試在設定值附近浮動 ±100ms。
-- 黃條只變化落點，仍使用原預測時刻與普通點擊，避免破壞命中窗口。
+After confirming the settlement page for the first time in the mobile phone mode, wait 0.25 seconds and then try to accept it. If it is still stuck on the confirmed result page, try again at the 0.35 second benchmark interval (retaining the original slight jitter).If the game animation is not ready for input, the first click may not close the page. Adjust the timing settings and reconnect to apply them. The emulator mode retains its original defaults.
 
-可取消勾選恢復固定落點與無額外反應延遲；設定需重新連線套用。這些是輸入變化，並非經真人操作資料校準的模型，也不保證避免遊戲偵測。
+## 1.7.3 Manual operation simulation
 
-## 1.7.4 前景檢查與幀率評估
+The current settlement first wait is defaulted to 1 second. When "Simulate manual operation" is checked:
 
-短暫查詢失敗、焦點轉移或前景結果過期時不發送輸入，但不立即清除運行狀態。重新確認為同一遊戲後繼續；連續至少 1 秒、3 次以上確認同一其他 App 才正式暫停。不確定狀態持續 3 秒則顯示「前景驗證持續失敗」及實際原因；真實暫停後仍需手動開始。
+- The click point changes within a circle near the center with a radius of 0.8% of the short side of the game selection, and is limited to the selection.
+- The short reaction time is increased by 40~120ms for lowering the hook, 15~40ms for retracting the hook, and 30~90ms for retraction.
+- Non-yellow bar operations use the same coordinates to press/lift, press for 35~75ms, and do not drag.
+- Settlement retry floats ±100ms around the set value.
+- The yellow bar only changes the landing point, and still uses the original predicted time and ordinary clicks to avoid damaging the hit window.
 
-本機 scrcpy 4.0 設定 `--max-fps=120` 與編碼 frame-rate=120 的試驗，崩潰前約 3.95 秒有效片段仍約 61 FPS。scrcpy 本機程序以 0xC0000005 異常結束，故此試驗不能證明長期幀率上限，也不能將其作為穩定替代後端。目前保留已驗證的原串流，未使用補幀／重複幀宣稱 120 FPS。
+You can uncheck the box to restore the fixed landing point and no additional response delay; the settings need to be reconnected to apply. These are input changes, not a model calibrated to real-person data, and are not guaranteed to avoid game detection.
 
-手機螢幕可支援 120Hz，不代表目前遊戲畫面、編碼路徑與擷取管線都提供 120 個新畫面。scrcpy 的 max-fps 是上限設定，相關實作參考 [官方開發文件](https://github.com/Genymobile/scrcpy/blob/master/doc/develop.md)。若要真正翻倍，仍需驗證遊戲輸出與穩定的高幀率擷取後端。
+## 1.7.4 Foreground inspection and frame rate evaluation
 
-## 圓角介面
+Input is not sent when a transient query fails, focus is transferred, or the foreground result expires, but the running status is not cleared immediately. Reconfirm that it is the same game and continue; it will be officially suspended after confirming the same other app for at least 1 second and three or more times. If the uncertain state lasts for 3 seconds, "Prospect verification continues to fail" and the actual reason will be displayed; after the actual pause, it still needs to be started manually.
 
-新版桌面介面使用 PySide6。視窗上方可拖曳移動，右上角可最小化或關閉。自訂圓角按鈕、設定分頁與狀態區提供過渡動畫。連線、觀察、開始、暫停與 ADB 輸入仍使用原本的手機後端。變更設定或框選後需重新連線套用；關閉視窗會停止該視窗啟動的工作階段。新版不會自動接管或停止已開啟的舊版視窗。
+In the experiment of native scrcpy 4.0 setting `--max-fps=120` and encoding frame-rate=120, the effective segment for about 3.95 seconds before crash was still about 61 FPS. The scrcpy native program ends with an exception of 0xC0000005, so this experiment cannot prove a long-term frame rate cap, nor can it be used as a stable alternative backend. Currently retaining the authenticated original stream without using fill/duplicate frames to claim 120 FPS.
 
-## 1.8.1 視窗與完整預覽
+The mobile screen can support 120Hz, which does not mean that the current game screen, encoding path and capture pipeline provide 120 new screens. The max-fps of scrcpy is the upper limit setting. For related implementation, please refer to [Official development document ](https://github.com/Genymobile/scrcpy/blob/master/doc/develop.md). To truly double this, you still need to verify game output and a stable high frame rate capture backend.
 
-桌面介面啟動時以螢幕可用空間設定預設大小，上限 1180×900；手動調整範圍為 680×600 至 3840×2160 邏輯像素，受顯示縮放與實際螢幕限制。右上方方框會將視窗放大至目前螢幕的可用區域（不超過上限），再次按下還原；右下角可拖曳調整大小。
+## Rounded corner interface
 
-寬度小於 760 且視窗偏直，或寬度小於 1200 且寬高比低於 0.85 時改為上下排列，並在底部固定開始／暫停；其餘使用左右欄。偏窄的橫向視窗會將 X/Y 欄位改成上下排列；高度低於 760 時減少頂部佔用。超寬視窗的主要內容維持約 1680 邏輯像素以內，避免輸入欄位過度拉長。設定區依需要捲動。
+The new desktop interface uses PySide6. The upper part of the window can be dragged and moved, and the upper right corner can be minimized or closed. Customizable rounded corner buttons, settings tabs, and status areas provide transition animations. Connect, observe, start, pause and ADB input still use the original mobile backend. After changing settings or box selections, you need to reconnect to apply; closing the window will stop the session started by the window. The new version will not automatically take over or stop the open windows of the old version.
 
-預覽使用整張手機串流，不再使用供辨識的 336×598 裁切畫面；外框依影像長寬比例縮放並套用圓角。顯示解析度仍受 ADB 串流限制，圓角會遮住極少量角落像素。點擊預覽，或聚焦預覽後按 Enter／空白鍵，可開啟更大的即時畫面。預覽 FPS 依實際新幀繪製次數計算；視窗被遮擋或隱藏時可能下降。原 Tk 介面仍保留辨識標註預覽。
+## 1.8.1 Window and full preview
+
+When the desktop interface is started, the default size is set based on the available screen space, with an upper limit of 1180×900; the manual adjustment range is 680×600 to 3840×2160 logical pixels, subject to display scaling and actual screen limitations. The upper right box will enlarge the window to the available area of ​​the current screen (not exceeding the upper limit), press again to restore; the lower right corner can be dragged to resize.
+
+When the width is less than 760 and the window is vertical, or when the width is less than 1200 and the aspect ratio is less than 0.85, it is changed to top-down arrangement, and the start/pause is fixed at the bottom; for the rest, the left and right columns are used. Narrow horizontal windows will change the X/Y columns to be arranged up and down; when the height is lower than 760, the top area will be reduced. The main content of the ultra-wide window is kept within approximately 1680 logical pixels to avoid excessive elongation of the input field. The settings area scrolls as needed.
+
+The preview uses the entire mobile phone stream instead of the 336×598 cropped screen for recognition; the outer frame is scaled according to the image aspect ratio and rounded corners are applied. Display resolution is still limited by ADB streaming, and rounded corners obscure very few corner pixels. Click on the preview, or focus on the preview and press Enter/Spacebar to open a larger live screen. Preview FPS is calculated based on the actual number of new frames drawn; may drop when the viewport is obscured or hidden. The original Tk interface still retains the recognition annotation preview.

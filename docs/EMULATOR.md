@@ -1,190 +1,194 @@
-# 模擬器模式原始操作手冊
+# Simulator Mode Original Operation Manual
 
-這份手冊保留模擬器入口的操作與時序說明。手機版的安裝及使用請見 [tt tool](../README.md)。手冊中的版本與便攜包名稱屬於模擬器版本。
+English · [繁體中文](EMULATOR.zh-TW.md) · [日本語](EMULATOR.ja.md) · [한국어](EMULATOR.ko.md)
 
-面向 Windows 上的雷电／MuMu模拟器的 Python 图像识别钓鱼工具。通过屏幕截图判断阶段，以空格完成下钩、拉钩、黄条判定和结算返回，不读取游戏内存。
+> This technical record includes historical versions and measurements. For current setup and supported workflows, see [the main guide](../README.md).
 
-[GitHub 项目](https://github.com/Estrella-071/tt-tool) · [更新记录](../CHANGELOG.md)
+This manual preserves the operation and timing instructions for the simulator entry. For the installation and use of the mobile version, please see [tt tool](../README.md). Versions and portable package names in the manual belong to the emulator version.
 
-> 本项目免费提供，用于学习与交流。无需购买授权、激活码或收费解锁；请从上面的项目地址获取源码。
+Python image recognition phishing tool for the Raiden/MuMu emulator on Windows. Through the screenshot judgment stage, the hook, pull hook, yellow bar judgment and settlement return are completed with spaces, without reading the game memory.
 
-当前版本 **1.6.1**。默认勾选“不停钓”，每6个基准帧截图一次（约10次/秒），用连续往返运动计时预约黄条按键；截图只校正位置。预览默认隐藏，不自动保存轨迹、截图、运行日志或诊断ZIP。源码发行包包含完整源码和必要资源；Windows免安装包另带运行环境，使用外层的“启动钓鱼助手.bat”启动。
-## 功能
+[GitHub project ](https://github.com/Estrella-071/tt-tool) · [Update record ](../CHANGELOG.md)
 
-- 自动识别准备下钩、等待上钩、拉钩、黄条判定和结果展示。
-- 支持跳过黄条或连续多轮黄条判定。
-- 支持普通“开心收下”及蓝色、紫色、金黄色及红橙渐变纪录结算页，包括“刷新团队纪录”画面。
-- 结果页等待后持续重试空格，避免首次按键没有被接受而停住。
-- 不停钓、次数／时长限制、截图间隔和快捷键可配置。
-- 失焦暂停、手动紧急暂停、截图、手动录制和离线回放。
+> This project is provided free of charge for learning and communication. No need to purchase licenses, activation codes or charge to unlock; please get the source code from the project address above.
 
-## 下载与启动
+Current version **1.6.1**. "Continuous fishing" is checked by default, and a screenshot is taken every 6 reference frames (about 10 times/second), and the yellow bar button is reserved with continuous back-and-forth motion timing; the screenshot only corrects the position. The preview is hidden by default and traces, screenshots, running logs or diagnostic ZIPs are not automatically saved. The source code distribution package contains complete source code and necessary resources; the Windows installation-free package also comes with a running environment, which can be started using the outer "Start Phishing Assistant.bat".
+## Function
 
-解压到新目录，在原Anaconda环境或PyCharm中运行 `main.py`。已安装依赖时无需重装环境。升级可复制旧目录的 `config.json` 和 `speed_profile.json`；首次升级会勾选“不停钓”，并将旧默认截图间隔30改为6；其他自定义截图间隔、快捷键、等待时间和速度参数保留。升级后再次修改的设置会正常保存。
-源码方式要求Windows、Python 3.10或以上，以及以下依赖：
+- Automatically identify preparation for hooking, waiting for hooking, hook pulling, yellow bar judgment and result display.
+- Supports skipping yellow bars or consecutive rounds of yellow bar judgments.
+- Supports ordinary "happy acceptance" and blue, purple, golden and red-orange gradient record settlement pages, including the "refresh team record" screen.
+- The result page continues to retry the space after waiting to avoid being stuck when the first key press is not accepted.
+- Non-stop fishing, times/duration limit, screenshot interval and shortcut keys are configurable.
+- Defocus pause, manual emergency pause, screenshot, manual recording and offline playback.
+
+## Download and launch
+
+Unzip it to a new directory and run `main.py` in the original Anaconda environment or PyCharm. There is no need to reinstall the environment when dependencies are already installed. Upgrading can copy `config.json` and `speed_profile.json` from the old directory; the first upgrade will check "Keep fishing" and change the old default screenshot interval of 30 to 6; other customized screenshot intervals, shortcut keys, waiting time and speed parameters will be retained. Settings modified again after the upgrade will be saved normally.
+The source code method requires Windows, Python 3.10 or above, and the following dependencies:
 
 ```bash
 python -m pip install -r requirements.txt
 python main.py
 ```
 
-使用PyCharm时，打开包含 `main.py` 的项目文件夹并选择对应解释器。Anaconda已安装依赖时无需重新安装。源码运行需要Tkinter；若解释器不包含它，可在对应Conda环境安装 `tk`。游戏完整竖屏画面比例约336∶598。
+When using PyCharm, open the project folder containing `main.py` and select the corresponding interpreter. There is no need to reinstall Anaconda when its dependencies are already installed. Tkinter is required to run the source code; if the interpreter does not include it, `tk` can be installed in the corresponding Conda environment. The complete vertical screen aspect ratio of the game is approximately 336:598.
 
-雷电或MuMu模拟器及游戏需自行准备。需要自行制作包含依赖的发行包时，可参考 [Windows便携版构建](WINDOWS.md)；当前源码包不包含Python或第三方依赖文件。
+LDPlayer or MuMu simulators and games need to be prepared by yourself. When you need to make your own distribution package containing dependencies, you can refer to [Windows Portable Edition Build ](WINDOWS.md); the current source code package does not contain Python or third-party dependency files.
 
-## 设置空格映射
+## Set space mapping
 
-在模拟器中，将空格映射到**圆形钓鱼按钮下半部与“开心收下”按钮重叠的位置**。这一位置应能在两种界面中都落入按钮内。
+In the simulator, map the space to where the lower half of the circular fishing button overlaps the "Happy Take" button. This position should fall within the button in both interfaces.
 
-分别手动确认：空格可以下钩、拉钩、完成黄条操作，并关闭“开心收下”和纪录结算页。程序始终只发送空格，不会自动改按回车。不要把空格映射放在聊天框或其他按钮上。
+Manually confirm respectively: the space can be hooked, pulled, completed the yellow bar operation, and closed the "Happy Acceptance" and record settlement page. The program always only sends spaces and will not automatically change to press Enter. Don't put space mappings on chat boxes or other buttons.
 
-## 框选完整游戏画面
+## Frame the complete game screen
 
-1. 运行程序，在第1步选择“雷电模拟器”或“MuMu模拟器”，再选择对应游戏窗口。
-2. 点击“2. 框选完整游戏画面”，在3秒内切回该模拟器。
-3. 在截图里从游戏左上角拖到右下角，确认选区。
+1. Run the program, select "Thunder Simulator" or "MuMu Simulator" in step 1, and then select the corresponding game window.
+2. Click "2. Frame the complete game screen" to switch back to the simulator within 3 seconds.
+3. Drag from the upper left corner of the game to the lower right corner in the screenshot to confirm the selection.
 
-**只选完整的竖屏游戏区域。模拟器标题栏、右侧工具栏和游戏外侧的黑边不要选；游戏内部的底部黑色栏要保留。** 不要只框鱼、黄条或钓鱼按钮，也不要漏掉顶部、左右边缘或底部界面。
+**Only select the complete vertical screen game area. Do not select the simulator title bar, right toolbar, and black borders outside the game; retain the bottom black bar inside the game. ** Don't just frame the fish, yellow bars, or fishing buttons, and don't leave out the top, left and right edges, or bottom interface.
 
-下图红框是正确示例。示例处于结果页，其他钓鱼阶段使用相同的完整游戏选区。程序内的“查看框选示例”也可打开此图。
+The red box in the picture below is a correct example. The example is on the results page, the other fishing stages use the same full game selection. This image can also be opened by "View Frame Selection Example" in the program.
 
-![框选示例：保留完整游戏和底部游戏栏，排除模拟器外侧边框与工具栏](images/crop-example.png)
+![Frame selection example: retain the complete game and bottom game bar, exclude the emulator outer border and toolbar ](images/crop-example.png)
 
-窗口列表按所选模拟器的标题筛选，多开管理器不会作为默认目标。实例使用自定义名称而没有出现在列表时，可勾选“显示其他窗口”，手动选择实际运行游戏的窗口。切换模拟器后重新核对并框选；不同模拟器的选区不会混用。雷电与MuMu都使用可见窗口截图和前台空格映射，不需要ADB或修改游戏文件。
+The window list is filtered by the title of the selected emulator, multi-open managers will not be the default target. When the instance uses a custom name and does not appear in the list, you can check "Show other windows" and manually select the window that actually runs the game. Recheck and select after switching simulators; selections from different simulators will not be mixed. Both Thunderbolt and MuMu use visible window screenshots and foreground space mapping, and do not require ADB or modification of game files.
 
-调整模拟器窗口大小、分辨率或显示比例后，应停止监测并重新框选。仅移动窗口时程序会跟随其位置。游戏必须保持可见且无遮挡。
+After adjusting the simulator window size, resolution or display ratio, you should stop monitoring and re-select. The program will only follow its position when moving the window. The game must remain visible and unobstructed.
 
-## 开始与暂停
+## Start and pause
 
-1. 在“钓鱼选项”中设置是否不停钓、截图间隔以及次数／分钟上限。
-2. 点击“3. 应用设置并开启监测”。此时只进行截图识别，尚未自动钓鱼。
-3. 切回模拟器按开始快捷键，默认 **F8**；或者点击“4. 3秒后启动钓鱼”，立即切回模拟器。
-4. 顶部出现“自动按空格 · 运行中”后开始操作。
+1. In "Fishing Options", set whether to stop fishing, the interval between screenshots, and the upper limit of times/minutes.
+2. Click "3. Apply settings and turn on monitoring". At this time, only screenshot recognition is performed, and automatic phishing is not yet available.
+3. To switch back to the simulator, press the start shortcut key, the default is **F8**; or click "4. Start fishing in 3 seconds" to switch back to the simulator immediately.
+4. Start the operation after "Automatically press space · Running" appears at the top.
 
-默认不勾选“仅观察”；勾选后只查看识别结果，不发送空格。每次打开软件都保持暂停，不会自行操作。
+"Observe only" is not checked by default; if checked, only the recognition results will be viewed and no spaces will be sent. The software remains paused every time it is opened and will not operate on its own.
 
-点击助手、浏览器或其他窗口会使模拟器失焦并暂停。返回模拟器后需要重新启动。点击项目链接或打开框选示例也会暂停操作。关闭程序会停止后台循环并释放本程序按下的空格。
+Clicking on the assistant, browser, or other window will cause the emulator to lose focus and pause. A restart is required after returning to the simulator. Clicking on a project link or opening a framed example will also pause the operation. Closing the program stops the background loop and releases the space pressed by the program.
 
-| 功能 | 默认快捷键 |
+| Function | Default shortcut keys |
 |---|---|
-| 开始／暂停 | F8 |
-| 紧急暂停、取消3秒启动 | F9 |
-| 保存游戏截图 | F10 |
+| Start/Pause | F8 |
+| Emergency pause, cancel 3-second start | F9 |
+| Save game screenshot | F10 |
 
-在“快捷键与延迟”页可改为F1～F12中的其他键，三个键不能重复。修改前停止监测，修改后重新点击第3步应用。界面显示当前生效键，避免与模拟器或其他软件的热键冲突。
+On the "Shortcut Keys and Delay" page, you can change it to other keys from F1 to F12. The three keys cannot be repeated. Stop monitoring before modification, and click Apply again in step 3 after modification. The interface displays the currently active keys to avoid conflict with the hotkeys of the simulator or other software.
 
-## 不停钓与截图频率
+## Non-stop fishing and screenshot frequency
 
-默认勾选“不停钓”，次数和分钟两个上限都不生效，完成结算后继续下一条。取消勾选后恢复限制。每次重新启动钓鱼会重新计算次数和时长。
+"Never stop fishing" is checked by default, and neither the upper limit of times nor minutes takes effect. After completing the settlement, continue to the next item. Uncheck to restore restrictions. Each time fishing is restarted, the number and duration will be recalculated.
 
-持续模式仍保留手动暂停、失焦和无响应保护，不会盲目点击未知弹窗或购买、补充鱼饵等按钮。
+The continuous mode still retains manual pause, out-of-focus and unresponsive protection, and will not blindly click on unknown pop-up windows or buttons such as purchase and replenishing bait.
 
-在“快捷键与延迟”页可设置“画面未确认等待”，默认60秒；“黄条阶段等待”默认120秒。两项范围均为0～3600秒，填0关闭对应自动超时。未确认画面期间只观察，不发送空格；F9及失焦暂停继续有效。旧版未确认等待若保持原默认12秒，升级时改为60秒，其他自定义值保留。
+On the "Shortcut Keys and Delay" page, you can set the "Unconfirmed Screen Wait", which defaults to 60 seconds; the "Yellow Bar Phase Wait" defaults to 120 seconds. The range of both items is 0~3600 seconds. Fill in 0 to turn off the corresponding automatic timeout. During the period when the image is not confirmed, only observation is performed and no spaces are sent; F9 and out-of-focus pause are still valid. If the unconfirmed wait of the old version remains the original default of 12 seconds, it will be changed to 60 seconds when upgrading, and other custom values ​​will be retained.
 
-“每多少帧截图一次”接受1～60的整数，按**每秒60个基准帧**换算时间，不读取游戏内部帧号。
+"Screenshot every frame" accepts integers from 1 to 60, and converts time according to **60 baseline frames per second**, without reading the game's internal frame number.
 
-| 输入值 | 截图间隔 | 每秒截图目标 |
+| Input value | Screenshot interval | Screenshot target per second |
 |---:|---:|---:|
-| 6（默认） | 100毫秒 | 10次 |
-| 12 | 200毫秒 | 5次 |
-| 30 | 500毫秒 | 2次 |
-| 60 | 1000毫秒 | 1次 |
+| 6 (default) | 100 milliseconds | 10 times |
+| 12 | 200ms | 5 times |
+| 30 | 500 milliseconds | 2 times |
+| 60 | 1000 milliseconds | 1 time |
 
-追求识别响应速度可调小；电脑卡顿时可调大，降低截图和识别开销。数值增大也会减慢采样，更容易错过短暂的上钩提示，较小的值并不保证总钓鱼效率更高。黄条点击使用单独的期限，不需要等下一张截图；接近目标或进行校准时也不额外加密截图。界面显示实际截图次数。预览默认隐藏；隐藏时跳过标注绘图和界面图像转换。临近按键期限时会先处理按键再截图，实际截图频率可能略低于设置值。
+To pursue recognition response speed, you can adjust it smaller; when your computer freezes, you can adjust it larger to reduce screenshots and recognition overhead. Increasing the value will also slow down sampling and make it easier to miss short hook prompts. Smaller values ​​do not guarantee higher overall fishing efficiency. The yellow bar click uses a separate period and does not need to wait for the next screenshot; no additional screenshots are encrypted when approaching the target or performing calibration. The interface displays the actual number of screenshots. The preview is hidden by default; annotation drawing and interface image conversion are skipped when hidden. When the key deadline is approaching, the keys will be processed first and then screenshots will be taken. The actual frequency of screenshots may be slightly lower than the set value.
 
-## 结算与黄条判定
+## Settlement and Yellow Bar Judgment
 
-结果页连续确认后默认等待3秒，再按空格。如果画面仍是纪录结算页或“开心收下”，约每1秒重试一次，每次间隔随机浮动±40毫秒，没有重试次数上限。每次操作都依据新截图；离开结算页后停止关闭动作，确认初始界面后再下钩。系统卡顿和截图处理可能延长实际间隔。
+After continuous confirmation on the result page, the default wait is 3 seconds, and then press space. If the screen is still recording the settlement page or "Happy Acceptance", it will be retried approximately every 1 second with a random interval of ±40 milliseconds. There is no upper limit for the number of retries. Each operation is based on a new screenshot; stop the closing action after leaving the checkout page, and confirm the initial interface before clicking the hook. System lag and screenshot processing may extend the actual interval.
 
-“开心收下”通过标题、绿色按钮区域、指定位置的白色文字和暗背景组合识别；文字允许小范围缩放，不依赖绿色底纹完全一致。纪录页通过重量图标、蓝色／紫色／金黄色／红橙渐变面板和暗背景组合识别，不依赖鱼的名称或“个人／团队纪录”标题。未知界面仍不按键。纪录页与收下页之间切换共用一次结算流程。
+"Happy Acceptance" is recognized through the combination of title, green button area, white text at the designated position and dark background; the text allows for small range scaling and is completely consistent without relying on green shading. Record pages are identified by a combination of weight icons, blue/purple/golden/red-orange gradient panels, and dark backgrounds, and do not rely on fish names or "Personal/Team Record" titles. Unknown interface still does not press keys. Switching between the record page and the next page shares a single settlement process.
 
-黄条阶段以固定比例速度维护连续运动相位：初始向右，到端点按时间反向，后续截图校正位置。多轮判定从上一轮的位置继续，不把每轮重置到起点。
+In the yellow bar stage, the continuous motion phase is maintained at a fixed proportional speed: initially to the right, to the end point in time reverse direction, and subsequent screenshots to correct the position. Multiple rounds of judgment continue from the position of the previous round without resetting each round to the starting point.
 
-鱼漂中心已经在黄色区域时立即按键；尚未进入时，预约下一次经过黄条中部的点击时刻，包含先到端点再折返的路线。目标很窄也不会因为固定安全边距而停止操作。同一趟经过只按一次；黄条变为下一轮后可再次按键，同一黄条未变时则允许在下一次经过时重试。
+Press the button immediately when the center of the fish float is already in the yellow area; when it has not yet entered, reserve the next click time passing through the middle of the yellow bar, including the route to the endpoint and then back. Even if the target is narrow, the operation will not be stopped due to the fixed safety margin. You can only press once for the same pass; you can press the button again after the yellow bar changes to the next round; if the same yellow bar does not change, you are allowed to try again at the next pass.
 
-预览绿框表示黄色目标，红线表示鱼漂，紫线表示预测生效位置。时序原理和适用边界见 [算法说明](ALGORITHM.md)。
+The green box in the preview indicates the yellow target, the red line indicates the fish float, and the purple line indicates the prediction effective position. For timing principles and applicable boundaries, see [Algorithm Description ](ALGORITHM.md).
 
-## 比例速度与校准
+## Proportional speed and calibration
 
-“速度与校准”页默认显示参考速度 **60.6%条宽/秒**。比例单位是判定条可见外框的全宽；鱼漂中心的实际行程会扣除左右端帽及装饰。计算不依赖原始设备的像素大小。
+The "Speed ​​and Calibration" page displays the reference speed **60.6% of the bar width per second** by default. The scale unit is the full width of the visible outer frame of the judgment bar; the actual stroke of the float center will deduct the left and right end caps and decorations. Calculation does not depend on the pixel size of the original device.
 
-不勾选校准时使用本机已保存速度；没有本机参数时用参考值。勾选“本次校准速度”后，使用正常截图中的同向位移区间，采样间隔小于0.25秒时先累计同向位移区间，再剔除零位移、跨端点、输入动效附近和明显离群值。双向样本稳定后保存结果并结束校准；不足时保留原值，不反复覆盖。校准不会额外增加截图次数，也不会写入原始轨迹。
+When unchecking the calibration, use the saved speed of the machine; use the reference value when there are no parameters of the machine. After checking "This Calibration Speed", use the same direction displacement interval in the normal screenshot. When the sampling interval is less than 0.25 seconds, the same direction displacement interval is first accumulated, and then zero displacement, cross-end points, input motion effects and obvious outliers are eliminated. After the bidirectional sample is stable, the results are saved and the calibration is completed; when insufficient, the original value is retained and is not overwritten repeatedly. Calibration will not increase the number of screenshots, nor will the original trajectory be written.
 
-结果保存在本机 `speed_profile.json`，升级时可复制到新目录；不要公开上传。需要恢复初值时点击“恢复参考速度”。截图仍先归一化到336×598；改变宽高比造成控件重新排版时，比例速度不能代替识别适配。
+The results are saved in the local machine `speed_profile.json` and can be copied to a new directory during upgrade; do not upload them publicly. Click "Restore Reference Speed" when you need to restore the initial value. The screenshot is still normalized to 336×598 first; when changing the aspect ratio and causing the controls to be rearranged, the proportional speed cannot replace the recognition adaptation.
 
-“游戏响应延迟基准”默认40毫秒，可根据设备调整。自动补偿只学习可测量的本机输入执行耗时，不能自动得知游戏内部完整响应延迟。低频预测假设两帧之间近似匀速，暂不通过停帧检测取消计划；游戏长停顿、变速或系统调度延迟仍可能造成误差。建议从准备下钩界面启动。
+The "Game Response Latency Baseline" defaults to 40 milliseconds and can be adjusted according to the device. Automatic compensation only learns the measurable local input execution time, and cannot automatically know the complete response delay within the game. Low-frequency prediction assumes that the speed between two frames is approximately uniform, and the plan is not canceled through freeze frame detection for the time being; long game pauses, speed changes, or system scheduling delays may still cause errors. It is recommended to start from the hook preparation interface.
 
-## 设置与升级
+## Setup and upgrade
 
-设置在点击第3步时保存；便携版保存在 `data/config.json`，源码版保存在项目根目录的 `config.json`，首次使用无需手工创建。`config.example.json` 仅用于展示默认配置，不包含任何个人框选。
+The settings are saved when clicking step 3; the portable version is saved in `data/config.json`, and the source code version is saved in `config.json` in the project root directory. There is no need to create it manually for the first time. `config.example.json` is only used to display the default configuration and does not include any personal selections.
 
-| 常用配置 | 默认 | 含义 |
+| Common configuration | Default | Meaning |
 |---|---:|---|
-| `emulator_type` | ldplayer | 雷电为ldplayer，MuMu为mumu |
-| `continuous_fishing` | true | 勾选后忽略次数与分钟上限 |
-| `capture_every_n_frames` | 6 | 每N个基准帧截图一次 |
-| `input_latency_ms` | 40 | 游戏响应延迟基准，另加有界的本机执行补偿 |
-| `timing_mode` | phase | 连续往返计时与低频位置校正 |
-| `unknown_timeout_s` | 60 | 未确认画面的最长等待秒数，0不限 |
-| `timing_timeout_s` | 120 | 黄条阶段最长等待秒数，0不限 |
-| `speed_fraction_per_s` | 0.606 | 无本机校准文件时使用的比例速度；校准文件优先 |
-| `calibrate_speed` | false | 当前监测请求校准；重开程序不会自动勾选 |
-| `adaptive_latency` | true | 学习可测量的本机执行耗时，不等于自动测得游戏延迟 |
-| `show_preview` | false | 是否显示识别预览 |
-| `key_hold_ms` | 35 | 单次空格按住时长 |
-| `result_wait_s` | 3 | 结算首次等待秒数 |
-| `result_retry_s` | 1 | 结算重试基准间隔 |
-| `result_retry_jitter_ms` | 40 | 结算重试间隔浮动毫秒数 |
-| `max_casts` | 20 | 未勾选不停钓时的下钩次数上限 |
-| `max_session_minutes` | 15 | 未勾选不停钓时的分钟上限 |
+| `emulator_type` | ldplayer | Thunder is ldplayer, MuMu is mumu |
+| `continuous_fishing` | true | Check to ignore the maximum number of times and minutes |
+| `capture_every_n_frames` | 6 | Screenshot every N reference frames |
+| `input_latency_ms` | 40 | Game response latency benchmark, plus bounded native execution compensation |
+| `timing_mode` | phase | Continuous round-trip timing and low-frequency position correction |
+| `unknown_timeout_s` | 60 | The maximum waiting seconds for unconfirmed screen, no limit to 0 |
+| `timing_timeout_s` | 120 | The longest waiting seconds in the yellow bar stage, no limit to 0 |
+| `speed_fraction_per_s` | 0.606 | The proportional speed used when there is no local calibration file; the calibration file takes priority |
+| `calibrate_speed` | false | Current monitoring requests calibration; restarting the program will not automatically check |
+| `adaptive_latency` | true | Learning measurable local execution time does not mean automatically measuring game latency |
+| `show_preview` | false | Whether to display recognition preview |
+| `key_hold_ms` | 35 | How long to hold down single space |
+| `result_wait_s` | 3 | Seconds to wait for the first settlement |
+| `result_retry_s` | 1 | Settlement retry base interval |
+| `result_retry_jitter_ms` | 40 | Settlement retry interval floating milliseconds |
+| `max_casts` | 20 | The maximum number of hooks when fishing without stopping is not checked |
+| `max_session_minutes` | 15 | The upper limit of minutes when fishing without stopping is not checked |
 
-便携版更新到新目录时，复制旧版 `data/` 保留设置与运行数据；从源码版迁移时，将旧 `config.json` 放到新包的 `data/`。源码版更新时可复制原本机 `config.json`。配置版本7首次读取旧设置时开启“不停钓”，把旧默认间隔30改为6，其他自定义截图间隔保留。之后取消不停钓或重新设为30也会正常保存。旧相位策略、快捷键、延迟和自定义等待时间保留；能够确认模拟器归属的旧选区可复用。窗口尺寸变化后重新框选。发布到GitHub时不要上传自己的 `config.json`。
+When the portable version is updated to a new directory, copy the old version `data/` to retain the settings and operating data; when migrating from the source version, put the old `config.json` into the new package's `data/`. When the source code version is updated, the original machine `config.json` can be copied. When configuration version 7 reads the old settings for the first time, "non-stop fishing" is enabled, the old default interval of 30 is changed to 6, and other customized screenshot intervals are retained. Afterwards, canceling non-stop fishing or resetting it to 30 will save it normally. Old phase strategies, shortcuts, delays, and custom waiting times are retained; old selections that confirm simulator ownership can be reused. Reframe the selection after the window size changes. Do not upload your own `config.json` when publishing to GitHub.
 
-## 本地文件与排查
+## Local files and troubleshooting
 
-正常钓鱼不自动保存运行日志、轨迹、截图或诊断ZIP，暂停和F9也不会打包数据。设置和明确完成的速度校准保存在本机。按F10才保存游戏截图；“录制”页的手动录制会暂停自动按键，保存15秒视频及对应时间戳。
+Normal fishing does not automatically save running logs, traces, screenshots or diagnostic ZIP, and pause and F9 will not package data. Setup and clearly completed speed calibration are saved locally. Press F10 to save game screenshots; manual recording on the "Recording" page will pause automatic keystrokes and save the 15-second video and corresponding timestamp.
 
-| 现象 | 检查方法 |
+| Phenomenon | Inspection method |
 |---|---|
-| 第3步后没有动作 | 还需第4步或开始快捷键；查看顶部是否运行、是否勾选仅观察 |
-| 开心收下未退出 | 核对空格映射是否落在两个按钮重叠区，且画面被识别为结果页 |
-| 一直显示未知画面 | 核对完整框选、游戏外黑边、遮挡和弹窗 |
-| 运行中暂停 | 查看顶部原因；模拟器失焦后需要重新启动 |
-| 按键不生效 | 手动检查空格映射、聊天焦点及助手与模拟器的权限级别 |
-| 判定持续偏早或偏晚 | 核对比例速度与延迟基准；可显式校准速度，不需每次启停校准 |
+| No action after step 3 | Step 4 or start shortcut key is required; check whether the top is running and whether only observation is checked |
+| Accept it happily without exiting | Check whether the space mapping falls in the overlapping area of ​​the two buttons, and the screen is recognized as a result page |
+| The unknown screen is always displayed | Check the complete frame selection, black borders outside the game, occlusion and pop-up windows |
+| Paused during operation | See the top reason; the simulator needs to be restarted after losing focus |
+| Keystrokes do not take effect | Manually check space mapping, chat focus, and permission levels of assistants and emulators |
+| Determine if it continues to be too early or too late | Check the proportional speed and delay benchmark; the speed can be explicitly calibrated, no need to calibrate every start and stop |
 
-离线检查不发送系统输入：
+Offline checking does not send system input:
 
 ```bash
 python selfcheck.py
 python replay.py
 ```
 
-`replay.py` 默认检查文档中的框选示例，也支持 `--input` 指定自己的图像或录像，以及 `--crop X Y W H` 指定游戏范围。它只输出拟议动作，不证明真实游戏执行或命中。
+`replay.py` checks the frame selection example in the document by default, and also supports `--input` to specify your own images or videos, and `--crop X Y W H` to specify the game range. It only outputs proposed moves and does not demonstrate real game execution or hits.
 
-公开分享材料前移除昵称、聊天内容、账号信息和本机路径。程序没有自动上传功能；更多说明见 [本地数据与公开发布](PRIVACY.md)。
+Remove nicknames, chat content, account information, and local paths before sharing material publicly. The program does not have an automatic upload function; see [Local Data and Public Release ](PRIVACY.md) for more instructions.
 
-## 上传与贡献
+## Upload and contribute
 
-本发布包解压后的 `README.md`、`main.py`、`fisher/`、`assets/` 等应放在仓库根目录，不再额外套一层工程文件夹。
+`README.md`, `main.py`, `fisher/`, `assets/`, etc. after decompression of this release package should be placed in the root directory of the warehouse without adding an additional layer of project folders.
 
-在本机运行或修改后，使用以下入口生成可公开发布的源码包：
+After running or modifying it locally, use the following entry to generate a publicly releasable source code package:
 
 ```bash
 python selfcheck.py
 python build_release.py
 ```
 
-只上传 `dist/tt-tool-source-版本号.zip` 解压后的内容。该入口使用明确文件清单，排除本机配置、日志、截图、录像、缓存和额外个人文件；`.gitignore` 同时用于Git工作流。不要直接上传未经检查的整个运行目录或诊断包。
+Only upload the decompressed content of `dist/tt-tool-source-版本号.zip`. This entry uses a clear file list, excluding local configuration, logs, screenshots, videos, caches and additional personal files; `.gitignore` is also used for Git workflow. Do not directly upload the entire run directory or diagnostic package without checking it.
 
-制作包含运行环境的Windows分发包，请运行 `python build_windows.py`，或使用仓库内的Windows portable工作流；具体步骤见 [便携版构建](WINDOWS.md)。便携ZIP放到GitHub Release附件，源码文件放到仓库，避免把整套runtime上传进源码目录。
+To create a Windows distribution package containing a running environment, please run `python build_windows.py`, or use the Windows portable workflow in the warehouse; for specific steps, see [Portable version build ](WINDOWS.md). The portable ZIP is placed in the GitHub Release attachment, and the source code files are placed in the warehouse to avoid uploading the entire runtime set into the source code directory.
 
-欢迎通过GitHub Issues提交可复现的问题。开发结构与验证方式见 [开发说明](DEVELOPMENT.md)。
+You are welcome to submit reproducible issues through GitHub Issues. For the development structure and verification method, see [Development Instructions ](DEVELOPMENT.md).
 
-## 许可与使用边界
+## Licensing and usage boundaries
 
-源码采用 [GPL-3.0-only](../LICENSE)。允许学习、修改和再分发；分发修改版时需要按许可证保留相关声明并提供相应源码。第三方游戏界面和模板的权利范围见 [NOTICE.md](../NOTICE.md)。
+The source code adopts [GPL-3.0-only](../LICENSE). Studying, modifying and redistributing is allowed; when distributing modified versions, you need to retain relevant notices according to the license and provide corresponding source code. The scope of rights for third-party game interfaces and templates is found at [NOTICE.md](../NOTICE.md).
 
-作者免费提供本项目，但GPL本身允许收费再分发，并不是“禁止售卖”许可。请认准公开源码和作者入口，不要为所谓激活码、官方授权或解锁功能付款。相关许可说明可查阅 [GNU GPL常见问题](https://www.gnu.org/licenses/gpl-faq.html#DoesTheGPLAllowMoney)。
+The author provides this project for free, but the GPL itself allows redistribution for a fee and is not a "no sale" license. Please look for the open source code and author entrance, and do not pay for the so-called activation code, official authorization or unlocking functions. Relevant license instructions can be found in [GNU GPL FAQ ](https://www.gnu.org/licenses/gpl-faq.html#DoesTheGPLAllowMoney).
 
-工具仅在本机处理截图及输入，不代表不会被游戏检测。使用前请确认游戏和平台允许该操作方式；不保证特定设备、所有鱼种或后续游戏版本的成功率。
+The tool only processes screenshots and input locally, which does not mean it will not be detected by the game. Please confirm that the game and platform allow this operation method before use; the success rate of specific devices, all fish species, or subsequent game versions is not guaranteed.

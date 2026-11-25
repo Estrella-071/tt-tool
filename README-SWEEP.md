@@ -1,14 +1,16 @@
-# 大掃除助手（Windows 測試版）
+# Spring Cleaning Assistant (Windows Beta)
 
-雙擊 `SweepAssistant.exe` 即可執行，不必安裝 Python、ADB 或 FFmpeg。程式內含這些執行工具，首次啟動時會自動將 ADB 放入本機使用者資料夾，供背景服務使用。Windows 電腦需為 64 位元，首次啟動需要一些時間解壓程式。
+English · [繁體中文](README-SWEEP.zh-TW.md) · [日本語](README-SWEEP.ja.md) · [한국어](README-SWEEP.ko.md)
 
-1. 選擇「手機 ADB」或「電腦視窗」，按「重新偵測」並選擇來源。
-2. 手機模式需自行在 Android 開啟 USB 偵錯，連接資料線並在手機允許電腦；不同電腦可能需要手機製造商的 USB 驅動程式。連線後預覽立即顯示；進入大掃除準備畫面後，程式自動開關兩次機率資訊來測量延遲，成功後才可開始。程式會將該手機的實測延遲偏差保存在本機，供下次校準使用；不會隨分享包移轉。
-3. 視窗模式預設使用空格，請先在模擬器的按鍵設定把空格映射到遊戲的開始／停止位置；亦可選擇自動點擊或 F1–F12。進入準備畫面並切到遊戲視窗，程式會開關機率資訊自動校準；開始後在 3 秒內切回遊戲視窗，保持可見且位於前景。
-4. 遊戲停在大掃除準備畫面後，按「開始一輪」。這會消耗遊戲顯示的一次道具。程式會嘗試命中黃色區域；一輪結束即停止，倍率轉盤由遊戲處理。程式會以停止畫面估計兩次是否落在黃色，顯示的是畫面判讀，邊界附近可能有誤差。
+Double-click `SweepAssistant.exe` to execute without having to install Python, ADB or FFmpeg. The program contains these execution tools. When it is first started, ADB will be automatically placed in the local user folder for use by background services. The Windows computer needs to be 64-bit, and it will take some time to unzip the program on first startup.
 
-辨識依畫面寬度與底部對齊，支援不同長寬比的完整直向遊戲畫面；避免遮擋遊戲畫面、黑邊或裁切；視窗頂部工具列不影響底部控制區的辨識。不同裝置與遊戲版面仍需要實測確認。按「停止」可取消；手機前景不明、視窗失焦、畫面過舊或無法確認時不發送新輸入。
+1. Select "Mobile ADB" or "Computer Window", click "Redetect" and select the source.
+2. In mobile phone mode, you need to enable USB debugging on Android, connect the data cable and allow the computer on the phone; different computers may require the USB driver of the mobile phone manufacturer. The preview is displayed immediately after connecting; after entering the general cleaning preparation screen, the program automatically switches the probability information on and off twice to measure the delay, and can only start after success. The program will save the measured delay deviation of the mobile phone locally for next calibration; it will not be transferred with the sharing package.
+3. Window mode uses spaces by default. Please map spaces to the start/stop position of the game in the emulator's key settings; you can also choose automatic click or F1–F12. Enter the preparation screen and switch to the game window, the program will turn on and off the automatic calibration of probability information; after starting, switch back to the game window within 3 seconds, keeping it visible and in the foreground.
+4. After the game stops at the cleaning preparation screen, click "Start Round". This will consume one prop shown in the game. The program will try to hit the yellow area; it will stop at the end of the round and the magnification dial will be handled by the game. The program will use the stop screen to estimate whether it falls in yellow twice. What is displayed is screen interpretation, and there may be errors near the boundaries.
 
-本版是實驗版。手機實測曾兩次都命中黃色，也曾未命中；延遲與畫面速度會波動，不能保證每次命中。不同手機需要累積自己的校準資料。視窗擷取與空格快捷鍵已在雷電實測，有兩次判定都落在黃色的完整一輪，也曾未命中；其他模擬器和其他快捷鍵尚未實測。不同解析度、畫面比例、遊戲版本、裝置延遲或速度都可能影響結果，請在觀察下使用。
+The recognition is aligned with the bottom of the screen width, supporting complete vertical game screens with different aspect ratios; avoiding blocking the game screen, black borders or cropping; the toolbar at the top of the window does not affect the recognition of the bottom control area. Different devices and game layouts still need to be tested and confirmed. Press "Stop" to cancel; new input will not be sent when the phone's foreground is unclear, the window is out of focus, the screen is old, or cannot be confirmed.
 
-原始碼與第三方授權資訊隨發行包附上。
+This version is an experimental version. In the actual test of the mobile phone, the yellow color was hit twice, and there were also misses; the delay and picture speed will fluctuate, and a hit cannot be guaranteed every time. Different mobile phones need to accumulate their own calibration data. The window capture and space shortcut keys have been tested in Thunderbolt, and there were two complete rounds of yellow judgments, and there were also misses; other simulators and other shortcut keys have not yet been tested. Different resolutions, aspect ratios, game versions, device delays or speeds may affect the results, so please use it under observation.
+
+Source code and third-party licensing information are included with the distribution package.

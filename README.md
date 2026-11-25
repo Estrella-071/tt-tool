@@ -4,7 +4,7 @@
 
 tt tool is a Windows companion for fishing and Ruins Adventure in Clash of Critters on Android. It previews the phone over USB and recognizes activity screens locally. Phone input begins after you select an activity and start a session.
 
-**[Download the Windows x64 installer](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.5/tt-tool-1.0.5-windows-x64-setup.exe)** · [v1.0.5 release notes and checksums](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.5)
+**[Download the Windows x64 installer](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.6/tt-tool-1.0.6-windows-x64-setup.exe)** · [v1.0.6 release notes and checksums](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.6)
 
 ![tt tool main window in English, with the phone connection area, preview, activity selector and language button](docs/images/tt-tool/en-main.png)
 
@@ -25,13 +25,13 @@ If you skip both shortcuts, open the **tt tool** shortcut inside the installatio
 
 ![Ruins settings in English, with a sample crop and touch point on the left and sliders for standard and red treasure thresholds on the right](docs/images/tt-tool/en-settings.png)
 
-*The settings screenshot uses a sample preview. Recognition depends on the phone, stream latency and game layout. See the [ADB mobile guide](docs/ADB.md) in Traditional Chinese for details.*
+*The settings screenshot uses a sample preview. Recognition depends on the phone, stream latency and game layout. See the [ADB mobile guide](docs/ADB.md) for details.*
 
 ## Updates and maintenance
 
 From the bottom of the window, choose **Maintenance → Check for updates**. From v1.0.5 onward, installed copies can download and verify a new release, then update in place after you confirm.
 
-If your installed app shows v1.1.0, v1.2.0, or v1.3.0, close tt tool and run the v1.0.5 installer once. The app keeps your settings. Use **Open releases** if you need to download the installer manually.
+If your installed app shows v1.1.0, v1.2.0, or v1.3.0, close tt tool and run the v1.0.6 installer once. The app keeps your settings. Use **Open releases** if you need to download the installer manually.
 
 Open the app and data folders or start the uninstaller from **Maintenance**. The uninstall confirmation shows the installation folder. Updates preserve your data, and uninstall keeps it by default. Select **Also delete local tt tool data** to remove it. Windows may display **Unknown publisher** because the installer is unsigned. [Windows installer guide](docs/INSTALLER.md)
 
