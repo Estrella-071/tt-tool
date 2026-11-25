@@ -18,7 +18,7 @@ LAUNCHER = "tt_tool_launcher.py"
 PHONE_MODULES = (
     "__init__", "adb", "adb_help", "config", "contact", "controller", "device_profiles",
     "emulators", "i18n", "maintenance", "phase", "phone_runtime", "phone_vision",
-    "project", "ruins",
+    "project", "ruins", "updater",
     "ruins_battle_result", "ruins_chest", "ruins_diagnostics", "ruins_geometry",
     "ruins_odds", "ruins_runtime", "speed", "templates", "vision", "visual_settings",
 )
@@ -50,6 +50,7 @@ def copy_payload(payload, cache):
     app.mkdir()
     shutil.copyfile(ROOT / "qt_fishing.py", app / "qt_fishing.py")
     shutil.copyfile(ROOT / "packaging" / LAUNCHER, app / LAUNCHER)
+    compile_update_helper(app)
     (app / "fisher").mkdir()
     for module in PHONE_MODULES:
         name = f"fisher/{module}.py"
@@ -66,6 +67,16 @@ def copy_payload(payload, cache):
     shutil.copyfile(ROOT / "packaging/tt-tool.ico", payload / "tt-tool.ico")
     dependencies = {"target": base["target"], "python": base["python"], "wheels": wheels}
     (payload / "DEPENDENCIES.json").write_text(json.dumps(dependencies, indent=2) + "\n", encoding="utf-8")
+
+
+def compile_update_helper(app):
+    compiler = Path(os.environ["WINDIR"]) / "Microsoft.NET/Framework64/v4.0.30319/csc.exe"
+    target = app / f"tt-tool-update-{VERSION}.exe"
+    subprocess.run(
+        [str(compiler), "/nologo", "/optimize+", "/warnaserror+", "/target:winexe", "/platform:x64",
+         "/reference:System.Windows.Forms.dll", f"/out:{target}", str(ROOT / "packaging/update-handoff.cs")],
+        check=True, timeout=60,
+    )
 
 
 def smoke_payload(payload, data):

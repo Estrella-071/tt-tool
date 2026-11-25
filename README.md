@@ -4,7 +4,7 @@
 
 tt tool is a Windows companion for fishing and Ruins Adventure in Clash of Critters on Android. It previews the phone over USB and recognizes activity screens locally. Phone input begins after you select an activity and start a session.
 
-**[Download the Windows x64 installer](https://github.com/Estrella-071/tt-tool/releases/download/v1.2.0/tt-tool-1.2.0-windows-x64-setup.exe)** · [v1.2.0 release notes and checksums](https://github.com/Estrella-071/tt-tool/releases/tag/v1.2.0)
+**[Download the Windows x64 installer](https://github.com/Estrella-071/tt-tool/releases/download/v1.3.0/tt-tool-1.3.0-windows-x64-setup.exe)** · [v1.3.0 release notes and checksums](https://github.com/Estrella-071/tt-tool/releases/tag/v1.3.0)
 
 ![tt tool main window in English, with the phone connection area, preview, activity selector and language button](docs/images/tt-tool/en-main.png)
 
@@ -29,9 +29,11 @@ If you skip both shortcuts, open the **tt tool** shortcut inside the installatio
 
 ## Updates and maintenance
 
-Open **Maintenance** at the bottom of the app to check for updates or open the app and data folders. Update checks run on request. If an update is available, confirm to open the release page in your browser, then download and run the installer.
+From the bottom of the window, choose **Maintenance → Check for updates**. In installer-based copies from v1.3.0 onward, you can download the next stable release in tt tool. The app checks the installer's SHA-256 hash and asks before ending the current activity, closing the app, and updating it in place. Update checks and downloads run on request.
 
-The maintenance menu also offers uninstall when tt tool was installed with the Windows installer. Updates keep your data. Uninstall also keeps it unless you select **Also delete local tt tool data**. See the [Windows installer guide](docs/INSTALLER.md).
+To upgrade from v1.2.0, download v1.3.0 and run the installer manually with tt tool closed. **Open releases** also provides a manual download if an in-app update is unavailable.
+
+Open the app and data folders or start the uninstaller from **Maintenance**. The uninstall confirmation shows the installation folder. Updates preserve your data, and uninstall keeps it by default. Select **Also delete local tt tool data** to remove it. Windows may display **Unknown publisher** because the installer is unsigned. [Windows installer guide](docs/INSTALLER.md)
 
 ## Troubleshooting and local data
 
