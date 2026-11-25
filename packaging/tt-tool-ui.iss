@@ -15,6 +15,9 @@ const
   WmSetFocus = $0007;
   WmKillFocus = $0008;
   WmNcDestroy = $0082;
+  WmWindowPosChanging = $0046;
+  WmWindowPosChanged = $0047;
+  WmTimer = $0113;
   WmNcLeftDown = $00A1;
   WmLeftDown = $0201;
   WmLeftUp = $0202;
@@ -29,6 +32,17 @@ const
   WindowCopy = $00CC0020;
   FileDirectory = $10;
   FileReparsePoint = $400;
+  ClientAreaAnimation = $1042;
+  ExtendedStyleIndex = -20;
+  LayeredStyle = $00080000;
+  AlphaEffect = $02;
+  HideWindowPosition = $0080;
+  FadeTimer = $5454;
+  RevealTime = 180;
+  DismissTime = 140;
+  AppRunningMutex = 'Estrella071.tt-tool.Running';
+  AppCloseEvent = 'Estrella071.tt-tool.Close';
+  EventModifyState = $0002;
 
 type
   TScreenPoint = record
@@ -64,6 +78,30 @@ function CursorScreenPosition(var Point: TScreenPoint): Boolean;
   external 'GetCursorPos@user32.dll stdcall';
 function FileAttributes(const Path: String): Integer;
   external 'GetFileAttributesW@kernel32.dll stdcall';
+function ReadAnimationSetting(Action, Param: Cardinal; var Enabled: Longint; Flags: Cardinal): Longint;
+  external 'SystemParametersInfoW@user32.dll stdcall';
+function ReadWindowStyle(Wnd: HWND; Index: Integer): NativeInt;
+  external 'GetWindowLongPtrW@user32.dll stdcall';
+function WriteWindowStyle(Wnd: HWND; Index: Integer; Value: NativeInt): NativeInt;
+  external 'SetWindowLongPtrW@user32.dll stdcall';
+function WindowOpacity(Wnd: HWND; Color: Cardinal; Alpha: Byte; Flags: Cardinal): Longint;
+  external 'SetLayeredWindowAttributes@user32.dll stdcall';
+function IsShown(Wnd: HWND): Longint;
+  external 'IsWindowVisible@user32.dll stdcall';
+function StartWindowTimer(Wnd: HWND; Id: NativeUInt; Interval: Cardinal; Callback: NativeInt): NativeUInt;
+  external 'SetTimer@user32.dll stdcall';
+function StopWindowTimer(Wnd: HWND; Id: NativeUInt): Longint;
+  external 'KillTimer@user32.dll stdcall';
+function WindowsTick: Int64;
+  external 'GetTickCount64@kernel32.dll stdcall';
+procedure CopyPositionFlags(var Target: Cardinal; Source, Size: NativeUInt);
+  external 'RtlMoveMemory@ntdll.dll stdcall';
+function OpenApplicationEvent(Access: Cardinal; Inherit: Longint; const Name: String): NativeUInt;
+  external 'OpenEventW@kernel32.dll stdcall';
+function SignalApplicationEvent(Event: NativeUInt): Longint;
+  external 'SetEvent@kernel32.dll stdcall';
+function CloseApplicationEvent(Event: NativeUInt): Longint;
+  external 'CloseHandle@kernel32.dll stdcall';
 
 type
   TStyledButton = record
@@ -77,7 +115,13 @@ var
   StyledButtons: array of TStyledButton;
   HeaderWindows: array of HWND;
   StyledButtonCallback, HeaderCallback: NativeInt;
+  FadeCallback, OriginalExtendedStyle: NativeInt;
+  FadingWindow: HWND;
+  FadeStarted: Int64;
+  CurrentAlpha: Byte;
+  ClosingFade: Boolean;
   ClearUserData: Boolean;
+  RemovalDataComplete: Boolean;
 
 procedure RoundControl(Control: TWinControl; Diameter: Integer);
 var
@@ -209,7 +253,7 @@ var
 begin
   if HighContrastActive then
     Exit;
-  Button.Font.Size := 10;
+  Button.Font.Size := 11;
   Button.Font.Style := [fsBold];
   Button.Cursor := crHandPoint;
   Index := GetArrayLength(StyledButtons);
@@ -221,6 +265,112 @@ begin
   if StyledButtonCallback = 0 then
     StyledButtonCallback := CreateCallback(@ActionWindowProc);
   AddWindowSubclass(StyledButtons[Index].WindowHandle, StyledButtonCallback, 1, Index);
+end;
+
+function MotionEnabled: Boolean;
+var
+  Enabled: Longint;
+begin
+  Result := False;
+  if HighContrastActive then
+    Exit;
+  Enabled := 0;
+  if ReadAnimationSetting(ClientAreaAnimation, 0, Enabled, 0) <> 0 then
+    Result := Enabled <> 0;
+end;
+
+procedure CompleteReveal(Wnd: HWND);
+begin
+  StopWindowTimer(Wnd, FadeTimer);
+  CurrentAlpha := 255;
+  WindowOpacity(Wnd, 0, CurrentAlpha, AlphaEffect);
+  WriteWindowStyle(Wnd, ExtendedStyleIndex, OriginalExtendedStyle);
+end;
+
+procedure DismissWindow(Wnd: HWND);
+var
+  Start: Int64;
+  Elapsed: Integer;
+  FromAlpha: Byte;
+  Progress: Double;
+begin
+  if ClosingFade or (IsShown(Wnd) = 0) or not MotionEnabled then
+    Exit;
+  ClosingFade := True;
+  StopWindowTimer(Wnd, FadeTimer);
+  WriteWindowStyle(Wnd, ExtendedStyleIndex, OriginalExtendedStyle or LayeredStyle);
+  FromAlpha := CurrentAlpha;
+  Start := WindowsTick;
+  repeat
+    Elapsed := Integer(WindowsTick - Start);
+    if Elapsed > DismissTime then
+      Elapsed := DismissTime;
+    Progress := Double(Elapsed) / DismissTime;
+    WindowOpacity(Wnd, 0, Byte(Round(FromAlpha * (1 - Progress * Progress * Progress))), AlphaEffect);
+    if Elapsed < DismissTime then
+      Sleep(12);
+  until Elapsed >= DismissTime;
+end;
+
+function FadeWindowProc(Wnd: HWND; Message: Cardinal; WParam: NativeUInt;
+  LParam: NativeInt; Id, Data: NativeUInt): NativeInt;
+var
+  Remaining: Double;
+  Elapsed: Int64;
+  Flags: Cardinal;
+begin
+  if (Message = WmTimer) and (WParam = FadeTimer) then begin
+    if IsShown(Wnd) <> 0 then begin
+      if FadeStarted = 0 then
+        FadeStarted := WindowsTick;
+      Elapsed := WindowsTick - FadeStarted;
+      if (Elapsed >= RevealTime) or not MotionEnabled then
+        CompleteReveal(Wnd)
+      else begin
+        Remaining := 1 - Double(Elapsed) / RevealTime;
+        CurrentAlpha := Byte(Round(255 * (1 - Remaining * Remaining * Remaining)));
+        WindowOpacity(Wnd, 0, CurrentAlpha, AlphaEffect);
+      end;
+    end;
+    Result := 0;
+    Exit;
+  end;
+  if (Message = WmWindowPosChanging) and (LParam <> 0) then begin
+    { x64 WINDOWPOS has two 8-byte HWNDs and four 4-byte coordinates before flags. }
+    CopyPositionFlags(Flags, NativeUInt(LParam) + 32, 4);
+    if Flags and HideWindowPosition <> 0 then
+      DismissWindow(Wnd);
+  end;
+  if (Message = WmWindowPosChanged) and ClosingFade and (IsShown(Wnd) = 0) then
+    CompleteReveal(Wnd);
+  if Message = WmNcDestroy then begin
+    StopWindowTimer(Wnd, FadeTimer);
+    RemoveWindowSubclass(Wnd, FadeCallback, Id);
+    FadingWindow := 0;
+  end;
+  Result := ContinueWindowMessage(Wnd, Message, WParam, LParam);
+end;
+
+procedure BeginReveal(Window: TForm);
+var
+  Wnd: HWND;
+begin
+  if not MotionEnabled then
+    Exit;
+  Wnd := Window.Handle;
+  if FadeCallback = 0 then
+    FadeCallback := CreateCallback(@FadeWindowProc);
+  if not AddWindowSubclass(Wnd, FadeCallback, 3, 0) then
+    Exit;
+  FadingWindow := Wnd;
+  FadeStarted := 0;
+  ClosingFade := False;
+  CurrentAlpha := 0;
+  OriginalExtendedStyle := ReadWindowStyle(Wnd, ExtendedStyleIndex);
+  WriteWindowStyle(Wnd, ExtendedStyleIndex, OriginalExtendedStyle or LayeredStyle);
+  if (WindowOpacity(Wnd, 0, CurrentAlpha, AlphaEffect) = 0) or
+    (StartWindowTimer(Wnd, FadeTimer, 15, 0) = 0) then
+    CompleteReveal(Wnd);
 end;
 
 function HeaderWindowProc(Wnd: HWND; Message: Cardinal; WParam: NativeUInt;
@@ -258,6 +408,10 @@ procedure RemoveActiveSubclasses;
 var
   I: Integer;
 begin
+  if FadingWindow <> 0 then begin
+    CompleteReveal(FadingWindow);
+    RemoveWindowSubclass(FadingWindow, FadeCallback, 3);
+  end;
   for I := 0 to GetArrayLength(StyledButtons) - 1 do
     RemoveWindowSubclass(StyledButtons[I].WindowHandle, StyledButtonCallback, 1);
   for I := 0 to GetArrayLength(HeaderWindows) - 1 do
@@ -298,8 +452,8 @@ begin
   Place(Header, 20, 17, Width - 40, 68);
   if not HighContrastActive then
     Surface(Header, HeaderColor);
-  Brand := TextLabel(Header, 'tt tool', 22, 14, 160, 37, 24, clWhite, True);
-  Role := TextLabel(Header, Subtitle, 185, 25, Width - 251, 30, 11, $00E5DBEA, False);
+  Brand := TextLabel(Header, 'tt tool', 24, 9, 170, 48, 27, clWhite, True);
+  Role := TextLabel(Header, Subtitle, 191, 24, Width - 255, 34, 12, $00E5DBEA, False);
   if not HighContrastActive then begin
     AddHeaderDrag(Header, Window);
     AddHeaderDrag(Brand, Window);
@@ -327,6 +481,20 @@ begin
   Body.Color := CardColor;
 end;
 
+procedure LayoutLicenseControls;
+begin
+  { The notebook aligns an inactive page when it is made visible. Do not carry
+    its original bottom anchors over to the new fixed-height content layout. }
+  WizardForm.LicenseLabel1.Anchors := [akLeft, akTop];
+  WizardForm.LicenseMemo.Anchors := [akLeft, akTop];
+  WizardForm.LicenseAcceptedRadio.Anchors := [akLeft, akTop];
+  WizardForm.LicenseNotAcceptedRadio.Anchors := [akLeft, akTop];
+  Place(WizardForm.LicenseLabel1, 0, 0, 608, 25);
+  Place(WizardForm.LicenseMemo, 0, 27, 608, 166);
+  Place(WizardForm.LicenseAcceptedRadio, 0, 197, 608, 27);
+  Place(WizardForm.LicenseNotAcceptedRadio, 0, 226, 608, 27);
+end;
+
 procedure InitializeWizard;
 var
   I: Integer;
@@ -334,8 +502,8 @@ var
 begin
   if WizardSilent or HighContrastActive then
     Exit;
-  Frame(WizardForm, 620, 429);
-  LayoutHeader(WizardForm, WizardForm, 620, CustomMessage('InstallMode'));
+  Frame(WizardForm, 704, 540);
+  LayoutHeader(WizardForm, WizardForm, 704, CustomMessage('InstallMode'));
   WizardForm.Bevel.Visible := False;
   WizardForm.Bevel1.Visible := False;
   WizardForm.MainPanel.Visible := False;
@@ -345,71 +513,99 @@ begin
 
   Card := TPanel.Create(WizardForm);
   Card.Parent := WizardForm;
-  Place(Card, 20, 97, 580, 263);
+  Place(Card, 20, 101, 664, 361);
   Surface(Card, CardColor);
 
   WizardForm.OuterNotebook.Parent := Card;
-  Place(WizardForm.OuterNotebook, 0, 0, 580, 263);
+  WizardForm.OuterNotebook.Anchors := [akLeft, akTop];
+  Place(WizardForm.OuterNotebook, 0, 0, 664, 361);
   for I := 0 to WizardForm.OuterNotebook.PageCount - 1 do
     LayoutBody(WizardForm.OuterNotebook.Pages[I]);
   for I := 0 to WizardForm.InnerNotebook.PageCount - 1 do
     LayoutBody(WizardForm.InnerNotebook.Pages[I]);
-  Place(WizardForm.InnerNotebook, 26, 78, 528, 170);
+  WizardForm.InnerNotebook.Anchors := [akLeft, akTop];
+  Place(WizardForm.InnerNotebook, 28, 92, 608, 254);
 
   WizardForm.PageNameLabel.Parent := WizardForm.InnerPage;
-  Place(WizardForm.PageNameLabel, 26, 13, 528, 38);
-  LabelFace(WizardForm.PageNameLabel, 21, InkColor, True);
+  Place(WizardForm.PageNameLabel, 28, 14, 608, 45);
+  LabelFace(WizardForm.PageNameLabel, 24, InkColor, True);
   WizardForm.PageDescriptionLabel.Parent := WizardForm.InnerPage;
-  Place(WizardForm.PageDescriptionLabel, 26, 51, 528, 28);
-  LabelFace(WizardForm.PageDescriptionLabel, 10, MutedColor, False);
+  Place(WizardForm.PageDescriptionLabel, 28, 58, 608, 32);
+  LabelFace(WizardForm.PageDescriptionLabel, 12, MutedColor, False);
 
-  Place(WizardForm.WelcomeLabel1, 26, 47, 528, 61);
-  LabelFace(WizardForm.WelcomeLabel1, 29, InkColor, True);
-  Place(WizardForm.WelcomeLabel2, 26, 119, 528, 115);
-  LabelFace(WizardForm.WelcomeLabel2, 13, MutedColor, False);
-  Place(WizardForm.FinishedHeadingLabel, 26, 43, 528, 55);
-  LabelFace(WizardForm.FinishedHeadingLabel, 26, InkColor, True);
-  Place(WizardForm.FinishedLabel, 26, 105, 528, 66);
-  LabelFace(WizardForm.FinishedLabel, 12, MutedColor, False);
-  Place(WizardForm.RunList, 26, 178, 528, 70);
-  Place(WizardForm.YesRadio, 26, 177, 528, 27);
-  Place(WizardForm.NoRadio, 26, 207, 528, 27);
+  Place(WizardForm.WelcomeLabel1, 28, 59, 608, 73);
+  LabelFace(WizardForm.WelcomeLabel1, 33, InkColor, True);
+  Place(WizardForm.WelcomeLabel2, 28, 143, 578, 155);
+  LabelFace(WizardForm.WelcomeLabel2, 15, MutedColor, False);
+  Place(WizardForm.FinishedHeadingLabel, 28, 50, 608, 62);
+  LabelFace(WizardForm.FinishedHeadingLabel, 30, InkColor, True);
+  Place(WizardForm.FinishedLabel, 28, 119, 608, 94);
+  LabelFace(WizardForm.FinishedLabel, 14, MutedColor, False);
+  Place(WizardForm.RunList, 28, 221, 608, 95);
+  Place(WizardForm.YesRadio, 28, 221, 608, 34);
+  Place(WizardForm.NoRadio, 28, 259, 608, 34);
 
-  Place(WizardForm.LicenseLabel1, 0, 4, 528, 23);
-  Place(WizardForm.LicenseMemo, 0, 28, 528, 87);
-  Place(WizardForm.LicenseAcceptedRadio, 0, 117, 528, 23);
-  Place(WizardForm.LicenseNotAcceptedRadio, 0, 142, 528, 23);
+  LabelFace(WizardForm.LicenseLabel1, 11, InkColor, False);
+  WizardForm.LicenseMemo.Color := clWhite;
+  WizardForm.LicenseMemo.BorderStyle := bsSingle;
+  WizardForm.LicenseMemo.ScrollBars := ssVertical;
+  WizardForm.LicenseMemo.Font.Name := 'Segoe UI';
+  WizardForm.LicenseMemo.Font.Size := 11;
+  WizardForm.LicenseMemo.TabStop := True;
+  WizardForm.LicenseAcceptedRadio.Font.Size := 11;
+  WizardForm.LicenseNotAcceptedRadio.Font.Size := 11;
+  LayoutLicenseControls;
 
-  Place(WizardForm.SelectDirLabel, 0, 6, 528, 34);
-  Place(WizardForm.SelectDirBrowseLabel, 0, 50, 528, 29);
+  Place(WizardForm.SelectDirLabel, 0, 9, 608, 42);
+  LabelFace(WizardForm.SelectDirLabel, 12, InkColor, False);
+  Place(WizardForm.SelectDirBrowseLabel, 0, 59, 608, 32);
+  LabelFace(WizardForm.SelectDirBrowseLabel, 11, MutedColor, False);
   WizardForm.DirEdit.AutoSize := False;
-  Place(WizardForm.DirEdit, 0, 85, 386, 33);
-  Place(WizardForm.DirBrowseButton, 398, 83, 130, 38);
-  Place(WizardForm.DiskSpaceLabel, 0, 142, 528, 23);
+  WizardForm.DirEdit.Font.Size := 12;
+  Place(WizardForm.DirEdit, 0, 98, 448, 37);
+  Place(WizardForm.DirBrowseButton, 464, 95, 144, 44);
+  Place(WizardForm.DiskSpaceLabel, 0, 162, 608, 28);
+  LabelFace(WizardForm.DiskSpaceLabel, 11, MutedColor, False);
   StyleAction(WizardForm.DirBrowseButton, False, CardColor);
 
-  Place(WizardForm.SelectTasksLabel, 0, 7, 528, 45);
-  Place(WizardForm.TasksList, 0, 54, 528, 112);
-  WizardForm.TasksList.MinItemHeight := ScaleY(32);
+  Place(WizardForm.SelectTasksLabel, 0, 8, 608, 51);
+  LabelFace(WizardForm.SelectTasksLabel, 11, InkColor, False);
+  Place(WizardForm.TasksList, 0, 65, 608, 166);
+  WizardForm.TasksList.MinItemHeight := ScaleY(38);
   WizardForm.TasksList.BorderStyle := bsNone;
   WizardForm.TasksList.Color := CardColor;
-  Place(WizardForm.ReadyLabel, 0, 4, 528, 36);
-  Place(WizardForm.ReadyMemo, 0, 40, 528, 119);
-  Place(WizardForm.StatusLabel, 0, 21, 528, 26);
-  Place(WizardForm.ProgressGauge, 0, 54, 528, 19);
-  Place(WizardForm.FilenameLabel, 0, 81, 528, 39);
+  Place(WizardForm.ReadyLabel, 0, 8, 608, 39);
+  LabelFace(WizardForm.ReadyLabel, 11, InkColor, False);
+  Place(WizardForm.ReadyMemo, 0, 51, 608, 179);
+  WizardForm.ReadyMemo.Font.Size := 11;
+  Place(WizardForm.StatusLabel, 0, 35, 608, 32);
+  LabelFace(WizardForm.StatusLabel, 12, InkColor, False);
+  Place(WizardForm.ProgressGauge, 0, 75, 608, 21);
+  Place(WizardForm.FilenameLabel, 0, 111, 608, 54);
+  LabelFace(WizardForm.FilenameLabel, 10, MutedColor, False);
   Place(WizardForm.PreparingErrorBitmapImage, 0, 8, 32, 32);
-  Place(WizardForm.PreparingLabel, 46, 8, 482, 68);
-  Place(WizardForm.PreparingMemo, 0, 79, 528, 80);
-  Place(WizardForm.PreparingYesRadio, 46, 99, 482, 25);
-  Place(WizardForm.PreparingNoRadio, 46, 130, 482, 25);
+  Place(WizardForm.PreparingLabel, 46, 8, 562, 78);
+  Place(WizardForm.PreparingMemo, 0, 92, 608, 151);
+  Place(WizardForm.PreparingYesRadio, 46, 114, 562, 30);
+  Place(WizardForm.PreparingNoRadio, 46, 151, 562, 30);
 
-  Place(WizardForm.CancelButton, 20, 374, 125, 40);
-  Place(WizardForm.BackButton, 331, 374, 125, 40);
-  Place(WizardForm.NextButton, 468, 374, 132, 40);
+  Place(WizardForm.CancelButton, 20, 479, 142, 46);
+  Place(WizardForm.BackButton, 378, 479, 146, 46);
+  Place(WizardForm.NextButton, 538, 479, 146, 46);
   StyleAction(WizardForm.CancelButton, False, ShellColor);
   StyleAction(WizardForm.BackButton, False, ShellColor);
   StyleAction(WizardForm.NextButton, True, ShellColor);
+  BeginReveal(WizardForm);
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if (CurPageID = wpLicense) and not WizardSilent then begin
+    if not HighContrastActive then
+      LayoutLicenseControls;
+    if WizardForm.LicenseMemo.CanFocus then
+      WizardForm.ActiveControl := WizardForm.LicenseMemo;
+  end;
 end;
 
 function HasUninstallSwitch(Switch: String): Boolean;
@@ -427,44 +623,53 @@ function ConfirmRemoval: Boolean;
 var
   Dialog: TSetupForm;
   Card: TPanel;
+  Directory: TNewEdit;
   Toggle: TNewCheckBox;
   Cancel, Remove: TNewButton;
 begin
-  Dialog := CreateCustomForm(562, 320, True, True);
+  Dialog := CreateCustomForm(610, 397, True, True);
   try
     Dialog.Caption := CustomMessage('RemoveHeading');
     Dialog.Position := poScreenCenter;
-    Frame(Dialog, 562, 320);
-    LayoutHeader(Dialog, Dialog, 562, CustomMessage('RemoveMode'));
+    Frame(Dialog, 610, 397);
+    LayoutHeader(Dialog, Dialog, 610, CustomMessage('RemoveMode'));
     Card := TPanel.Create(Dialog);
     Card.Parent := Dialog;
-    Place(Card, 20, 97, 522, 154);
+    Place(Card, 20, 101, 570, 222);
     if not HighContrastActive then
       Surface(Card, CardColor);
-    TextLabel(Card, CustomMessage('RemoveHeading'), 23, 12, 470, 44, 22, InkColor, True);
-    TextLabel(Card, CustomMessage('RemoveDescription'), 23, 58, 470, 46, 11, MutedColor, False);
+    TextLabel(Card, CustomMessage('RemoveHeading'), 24, 12, 522, 47, 24, InkColor, True);
+    TextLabel(Card, CustomMessage('RemoveDescription'), 24, 60, 522, 46, 12, MutedColor, False);
+    TextLabel(Card, CustomMessage('RemoveFolderLabel'), 24, 111, 522, 23, 10, MutedColor, False);
+    Directory := TNewEdit.Create(Card);
+    Directory.Parent := Card;
+    Directory.ReadOnly := True;
+    Directory.AutoSize := False;
+    Directory.Font.Size := 11;
+    Directory.Text := ExpandConstant('{app}');
+    Place(Directory, 24, 136, 522, 33);
     Toggle := TNewCheckBox.Create(Card);
     Toggle.Parent := Card;
     Toggle.Caption := CustomMessage('RemoveDataOption');
     Toggle.Checked := False;
-    Toggle.Font.Size := 10;
-    Toggle.TabOrder := 0;
-    Place(Toggle, 23, 112, 470, 29);
+    Toggle.Font.Size := 11;
+    Place(Toggle, 24, 177, 522, 32);
     Cancel := TNewButton.Create(Dialog);
     Cancel.Parent := Dialog;
     Cancel.Caption := SetupMessage(msgButtonCancel);
     Cancel.ModalResult := mrCancel;
     Cancel.Cancel := True;
     Cancel.Default := True;
-    Place(Cancel, 20, 264, 132, 40);
+    Place(Cancel, 20, 338, 142, 44);
     StyleAction(Cancel, False, ShellColor);
     Remove := TNewButton.Create(Dialog);
     Remove.Parent := Dialog;
     Remove.Caption := CustomMessage('RemoveAction');
     Remove.ModalResult := mrOk;
-    Place(Remove, 390, 264, 152, 40);
+    Place(Remove, 424, 338, 166, 44);
     StyleAction(Remove, True, ShellColor);
     Dialog.ActiveControl := Cancel;
+    BeginReveal(Dialog);
     Result := Dialog.ShowModal = mrOk;
     ClearUserData := Result and Toggle.Checked;
   finally
@@ -472,13 +677,52 @@ begin
   end;
 end;
 
+procedure WaitForApplicationExit(Timeout: Cardinal);
+var
+  Deadline: Int64;
+begin
+  Deadline := WindowsTick + Int64(Timeout);
+  while CheckForMutexes(AppRunningMutex) and (WindowsTick < Deadline) do
+    Sleep(50);
+end;
+
+procedure RequestApplicationExit;
+var
+  Event: NativeUInt;
+begin
+  Event := OpenApplicationEvent(EventModifyState, 0, AppCloseEvent);
+  if Event = 0 then begin
+    Log('App close event is unavailable; Inno will check whether tt tool is still running.');
+    Exit;
+  end;
+  try
+    if SignalApplicationEvent(Event) <> 0 then
+      WaitForApplicationExit(5000)
+    else
+      Log('App close event could not be signaled; Inno will recheck the app mutex.');
+  finally
+    CloseApplicationEvent(Event);
+  end;
+end;
+
 function InitializeUninstall: Boolean;
 begin
+  RemovalDataComplete := True;
   ClearUserData := HasUninstallSwitch('/TTTOOLCLEARDATA');
-  if HasUninstallSwitch('/TTTOOLPROMPT') and not HasUninstallSwitch('/VERYSILENT') then
-    Result := ConfirmRemoval
-  else
-    Result := True;
+  Result := True;
+  if HasUninstallSwitch('/VERYSILENT') then
+    Exit;
+  if HasUninstallSwitch('/TTTOOLCOMPLETE') then
+    WaitForApplicationExit(2000);
+  if HasUninstallSwitch('/TTTOOLPROMPT') then begin
+    Result := ConfirmRemoval;
+    if Result and CheckForMutexes(AppRunningMutex) then begin
+      Result := MsgBox(CustomMessage('RemoveAskToCloseRunning'), mbConfirmation,
+        MB_YESNO or MB_DEFBUTTON2) = IDYES;
+      if Result then
+        RequestApplicationExit;
+    end;
+  end;
 end;
 
 procedure InitializeUninstallProgressForm;
@@ -487,32 +731,92 @@ var
 begin
   if HighContrastActive or HasUninstallSwitch('/VERYSILENT') then
     Exit;
-  Frame(UninstallProgressForm, 562, 256);
-  LayoutHeader(UninstallProgressForm, UninstallProgressForm, 562, CustomMessage('RemoveMode'));
+  Frame(UninstallProgressForm, 610, 307);
+  LayoutHeader(UninstallProgressForm, UninstallProgressForm, 610, CustomMessage('RemoveMode'));
   UninstallProgressForm.Bevel.Visible := False;
   UninstallProgressForm.Bevel1.Visible := False;
   UninstallProgressForm.MainPanel.Visible := False;
   UninstallProgressForm.BeveledLabel.Visible := False;
   Card := TPanel.Create(UninstallProgressForm);
   Card.Parent := UninstallProgressForm;
-  Place(Card, 20, 97, 522, 140);
+  Place(Card, 20, 101, 570, 185);
   Surface(Card, CardColor);
   UninstallProgressForm.OuterNotebook.Parent := Card;
-  Place(UninstallProgressForm.OuterNotebook, 0, 0, 522, 140);
-  Place(UninstallProgressForm.InnerNotebook, 0, 0, 522, 140);
+  Place(UninstallProgressForm.OuterNotebook, 0, 0, 570, 185);
+  Place(UninstallProgressForm.InnerNotebook, 0, 0, 570, 185);
   LayoutBody(UninstallProgressForm.InnerPage);
   LayoutBody(UninstallProgressForm.InstallingPage);
   UninstallProgressForm.PageNameLabel.Parent := UninstallProgressForm.InstallingPage;
-  Place(UninstallProgressForm.PageNameLabel, 23, 11, 476, 42);
-  LabelFace(UninstallProgressForm.PageNameLabel, 22, InkColor, True);
-  Place(UninstallProgressForm.StatusLabel, 23, 54, 476, 46);
-  LabelFace(UninstallProgressForm.StatusLabel, 10, MutedColor, False);
+  Place(UninstallProgressForm.PageNameLabel, 24, 12, 522, 45);
+  LabelFace(UninstallProgressForm.PageNameLabel, 24, InkColor, True);
+  Place(UninstallProgressForm.StatusLabel, 24, 58, 522, 45);
+  LabelFace(UninstallProgressForm.StatusLabel, 12, MutedColor, False);
   if ClearUserData then
     UninstallProgressForm.StatusLabel.Caption := CustomMessage('RemovingWithData')
   else
     UninstallProgressForm.StatusLabel.Caption :=
       FmtMessage(SetupMessage(msgUninstallStatusLabel), ['tt tool']);
-  Place(UninstallProgressForm.ProgressBar, 23, 106, 476, 18);
+  TextLabel(UninstallProgressForm.InstallingPage, ExpandConstant('{app}'),
+    24, 108, 522, 40, 10, MutedColor, False);
+  Place(UninstallProgressForm.ProgressBar, 24, 151, 522, 18);
+  BeginReveal(UninstallProgressForm);
+end;
+
+procedure OpenStableRelease(Sender: TObject);
+var
+  ErrorCode: Integer;
+begin
+  if not ShellExec('open', 'https://github.com/Estrella-071/tt-tool/releases/latest',
+    '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode) then
+    MsgBox(SysErrorMessage(ErrorCode), mbError, MB_OK);
+end;
+
+procedure ShowRemovalCompletion;
+var
+  Dialog: TSetupForm;
+  Card: TPanel;
+  CloseButton, ReleaseButton: TNewButton;
+  Detail: String;
+begin
+  Dialog := CreateCustomForm(610, 311, True, True);
+  try
+    Dialog.Caption := CustomMessage('RemoveFinishedHeading');
+    Dialog.Position := poScreenCenter;
+    Frame(Dialog, 610, 311);
+    LayoutHeader(Dialog, Dialog, 610, CustomMessage('RemoveMode'));
+    Card := TPanel.Create(Dialog);
+    Card.Parent := Dialog;
+    Place(Card, 20, 101, 570, 135);
+    if not HighContrastActive then
+      Surface(Card, CardColor);
+    TextLabel(Card, CustomMessage('RemoveFinishedHeading'), 24, 14, 522, 45, 24, InkColor, True);
+    if FileExists(ExpandConstant('{app}\app\tt_tool_launcher.py')) or not RemovalDataComplete then
+      Detail := CustomMessage('RemoveFinishedPartial')
+    else if ClearUserData then
+      Detail := CustomMessage('RemoveFinishedCleared')
+    else
+      Detail := CustomMessage('RemoveFinishedKept');
+    TextLabel(Card, Detail, 24, 60, 522, 60, 12, MutedColor, False);
+    ReleaseButton := TNewButton.Create(Dialog);
+    ReleaseButton.Parent := Dialog;
+    ReleaseButton.Caption := CustomMessage('RemoveOpenReleases');
+    ReleaseButton.OnClick := @OpenStableRelease;
+    Place(ReleaseButton, 20, 251, 224, 44);
+    StyleAction(ReleaseButton, False, ShellColor);
+    CloseButton := TNewButton.Create(Dialog);
+    CloseButton.Parent := Dialog;
+    CloseButton.Caption := CustomMessage('RemoveClose');
+    CloseButton.ModalResult := mrOk;
+    CloseButton.Default := True;
+    CloseButton.Cancel := True;
+    Place(CloseButton, 444, 251, 146, 44);
+    StyleAction(CloseButton, True, ShellColor);
+    Dialog.ActiveControl := CloseButton;
+    BeginReveal(Dialog);
+    Dialog.ShowModal;
+  finally
+    Dialog.Free;
+  end;
 end;
 
 function DataFolderIsOrdinary(const Folder: String): Boolean;
@@ -559,14 +863,18 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Base, Data: String;
 begin
-  if (CurUninstallStep <> usPostUninstall) or not ClearUserData then
-    Exit;
-  Base := ExpandConstant('{localappdata}\tt-tool');
-  Data := AddBackslash(Base) + 'data';
-  if DirExists(Data) then begin
-    if not DataFolderIsOrdinary(Base) or not DataFolderIsOrdinary(Data) then
-      Log('Skipped user data because its directory is a reparse point.')
-    else if not RemoveOwnData(Data) then
-      Log('Some tt tool data could not be removed.');
+  if (CurUninstallStep = usPostUninstall) and ClearUserData then begin
+    Base := ExpandConstant('{localappdata}\tt-tool');
+    Data := AddBackslash(Base) + 'data';
+    if DirExists(Data) then begin
+      RemovalDataComplete := DataFolderIsOrdinary(Base) and DataFolderIsOrdinary(Data);
+      if RemovalDataComplete then
+        RemovalDataComplete := RemoveOwnData(Data);
+      if not RemovalDataComplete then
+        Log('Some tt tool data could not be removed.');
+    end;
   end;
+  if (CurUninstallStep = usDone) and not HasUninstallSwitch('/VERYSILENT') and
+    (HasUninstallSwitch('/TTTOOLPROMPT') or HasUninstallSwitch('/TTTOOLCOMPLETE')) then
+    ShowRemovalCompletion;
 end;

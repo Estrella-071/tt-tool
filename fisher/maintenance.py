@@ -9,6 +9,7 @@ from PySide6 import QtCore, QtGui, QtNetwork, QtWidgets
 
 from .config import DATA_ROOT, ROOT
 from .project import PROJECT_URL, VERSION
+from .updater import InstallerDownload, installed_helper, process_identity, release_asset
 
 LATEST_API = "https://api.github.com/repos/Estrella-071/tt-tool/releases/latest"
 LATEST_PAGE = PROJECT_URL + "/releases/latest"
@@ -27,10 +28,15 @@ def version_parts(version):
 
 
 def latest_version(payload):
+    return parse_release(payload)[1]
+
+
+def parse_release(payload):
     release = json.loads(payload)
     if not isinstance(release, dict) or release.get("draft") or release.get("prerelease"):
         raise ValueError("Expected a published stable release")
-    return ".".join(map(str, version_parts(release.get("tag_name", ""))))
+    version = ".".join(map(str, version_parts(release.get("tag_name", ""))))
+    return release, version
 
 
 def uninstall_program(install_root):
@@ -66,12 +72,13 @@ class Maintenance(QtCore.QObject):
         self.install_root = Path(install_root) if install_root is not None else None
         self.network = QtNetwork.QNetworkAccessManager(self)
         self.reply = None
+        self.download = None
 
     def menu(self, anchor):
         tr = self.window.tr
         menu = QtWidgets.QMenu(anchor)
         check = menu.addAction(tr("正在檢查更新…" if self.reply else "檢查更新"), self.check_updates)
-        check.setEnabled(self.reply is None)
+        check.setEnabled(self.reply is None and self.download is None)
         menu.addAction(tr("開啟檔案位置"), self.open_app_folder)
         menu.addAction(tr("開啟設定資料夾"), self.open_data_folder)
         if uninstall_program(self.install_root) is not None:
@@ -126,7 +133,7 @@ class Maintenance(QtCore.QObject):
             dialog.deleteLater()
 
     def check_updates(self):
-        if self.reply is not None:
+        if self.reply is not None or self.download is not None:
             return
         request = QtNetwork.QNetworkRequest(QtCore.QUrl(LATEST_API))
         request.setRawHeader(b"Accept", b"application/vnd.github+json")
@@ -145,7 +152,7 @@ class Maintenance(QtCore.QObject):
         deadline.start(8000)
 
     def limit_reply(self):
-        if self.reply.bytesAvailable() > RELEASE_JSON_LIMIT:
+        if self.reply is not None and self.reply.bytesAvailable() > RELEASE_JSON_LIMIT:
             self.reply.abort()
 
     def update_ready(self):
@@ -154,7 +161,10 @@ class Maintenance(QtCore.QObject):
             status = reply.attribute(QtNetwork.QNetworkRequest.Attribute.HttpStatusCodeAttribute)
             if reply.error() != QtNetwork.QNetworkReply.NetworkError.NoError or status != 200:
                 raise ValueError("Could not fetch the latest release")
-            newest = latest_version(bytes(reply.readAll()))
+            payload = bytes(reply.read(RELEASE_JSON_LIMIT + 1))
+            if len(payload) > RELEASE_JSON_LIMIT:
+                raise ValueError("Release data exceeds the response limit")
+            release, newest = parse_release(payload)
         except (ValueError, TypeError):
             self.offer_releases("無法檢查更新", "目前無法連線確認版本。你可以開啟發布頁查看。")
         else:
@@ -163,7 +173,12 @@ class Maintenance(QtCore.QObject):
             fields = {"current": self.version, "latest": newest}
             if available > installed:
                 message = self.window.tr("目前版本為 v{current}，可下載 v{latest}。").format(**fields)
-                self.offer_releases("有新版本", message)
+                helper = installed_helper(self.install_root, self.version)
+                asset = release_asset(release, newest)
+                if helper is not None and asset is not None:
+                    self.offer_update(message, asset)
+                else:
+                    self.offer_releases("有新版本", message)
             else:
                 source = ("目前版本 v{current} 已是最新。" if available == installed
                           else "目前版本 v{current} 比公開版 v{latest} 新。")
@@ -173,9 +188,102 @@ class Maintenance(QtCore.QObject):
             reply.deleteLater()
 
     def offer_releases(self, title, message):
-        if (self.dialog(title, message, "開啟發布頁")
-                and not QtGui.QDesktopServices.openUrl(QtCore.QUrl(LATEST_PAGE))):
+        if self.dialog(title, message, "開啟發布頁"):
+            self.open_release_page()
+
+    def open_release_page(self):
+        if not QtGui.QDesktopServices.openUrl(QtCore.QUrl(LATEST_PAGE)):
             self.dialog("無法開啟發布頁", LATEST_PAGE)
+
+    def offer_update(self, message, asset):
+        dialog, content = self.panel("有新版本")
+        content.addWidget(self.window.label(message, "controlSubtitle"))
+        controls = QtWidgets.QHBoxLayout()
+        controls.addStretch()
+        controls.addWidget(self.window.button("關閉", dialog.reject))
+        page = self.window.button("開啟發布頁", lambda: dialog.done(2))
+        controls.addWidget(page)
+        download = self.window.button("下載並安裝", dialog.accept, "primary")
+        controls.addWidget(download)
+        content.addLayout(controls)
+        try:
+            selection = dialog.exec()
+        finally:
+            dialog.deleteLater()
+        if selection == QtWidgets.QDialog.DialogCode.Accepted:
+            self.start_download(asset)
+        elif selection == 2:
+            self.open_release_page()
+
+    def start_download(self, asset):
+        try:
+            job = InstallerDownload(self.network, asset, self)
+        except OSError:
+            self.download_error()
+            return
+        self.download = job
+        dialog, content = self.panel("正在下載更新…")
+        progress = QtWidgets.QProgressBar(dialog)
+        progress.setRange(0, 100)
+        progress.setValue(0)
+        content.addWidget(progress)
+        controls = QtWidgets.QHBoxLayout()
+        controls.addStretch()
+        controls.addWidget(self.window.button("取消", dialog.reject))
+        content.addLayout(controls)
+        job.progress.connect(lambda value: progress.setValue(int(value * 100)))
+        job.verified.connect(dialog.accept)
+        job.failed.connect(lambda: dialog.done(2))
+        dialog.finished.connect(lambda result: self.download_finished(job, dialog, result))
+        dialog.open()
+        job.start()
+
+    def download_finished(self, job, dialog, result):
+        dialog.deleteLater()
+        job.stop()
+        handed_off = False
+        try:
+            if result == QtWidgets.QDialog.DialogCode.Accepted:
+                handed_off = self.install_update(job.file)
+        finally:
+            if not handed_off:
+                try:
+                    job.file.cleanup()
+                except OSError:
+                    result = 2
+            self.download = None
+            job.deleteLater()
+        if result == 2:
+            self.download_error()
+
+    def download_error(self):
+        self.offer_releases("無法下載更新", "更新未完成。你可以從發布頁下載安裝程式重試。")
+
+    def install_update(self, file):
+        if not self.dialog(
+            "更新已驗證", "將結束目前活動、安裝更新並重新開啟 tt tool。Windows 可能會顯示安全性提示。",
+            "安裝更新",
+        ):
+            return False
+        helper = installed_helper(self.install_root, self.version)
+        started = False
+        if helper is not None:
+            arguments = self.install_arguments(file)
+            if arguments is not None:
+                started, _ = QtCore.QProcess.startDetached(str(helper), arguments, str(helper.parent))
+        if started:
+            self.window.close()
+            return True
+        self.offer_releases("無法安裝更新", "更新未完成。你可以從發布頁下載安裝程式重試。")
+        return False
+
+    def install_arguments(self, file):
+        try:
+            pid, created = process_identity()
+        except OSError:
+            return None
+        return [pid, created, str(file.installer), file.asset.sha256, self.window.tr("無法安裝更新"),
+                self.window.tr("更新未完成。你可以從發布頁下載安裝程式重試。")]
 
     def open_app_folder(self):
         self.open_folder(self.install_root if self.install_root is not None else ROOT)
@@ -188,8 +296,10 @@ class Maintenance(QtCore.QObject):
             self.dialog("無法開啟資料夾", str(path))
 
     def uninstall(self):
+        question = self.window.tr("tt tool 將關閉，正在執行的活動也會結束。是否繼續解除安裝？")
+        location = self.window.tr("安裝位置")
         confirmed, clear_data = self.dialog(
-            "解除安裝 tt tool？", "正在執行的活動將結束。你可以同時移除設定、校正資料與記錄。",
+            "解除安裝 tt tool？", f"{question}\n\n{location}\n{self.install_root}",
             "解除安裝", destructive=True, option="一併清除 tt tool 的本機資料",
         )
         if not confirmed:
@@ -202,7 +312,7 @@ class Maintenance(QtCore.QObject):
         # Release the phone session before handing off to the uninstaller.
         if self.window.runner:
             self.window.disconnect()
-        arguments = ["/SILENT", "/NORESTART"]
+        arguments = ["/SILENT", "/NORESTART", "/TTTOOLCOMPLETE"]
         if clear_data:
             arguments.append("/TTTOOLCLEARDATA")
         started, _ = QtCore.QProcess.startDetached(str(program), arguments, str(program.parent.parent))

@@ -4,7 +4,7 @@
 
 tt tool은 Android용 Clash of Critters의 낚시와 유적 탐험을 Windows에서 조작하는 도구입니다. USB로 연결한 휴대전화 화면을 미리 보고, PC에서 화면을 인식합니다. 활동을 선택하고 시작을 누르면 휴대전화에 입력을 보냅니다.
 
-**[Windows x64 설치 프로그램 다운로드](https://github.com/Estrella-071/tt-tool/releases/download/v1.2.0/tt-tool-1.2.0-windows-x64-setup.exe)** · [v1.2.0 릴리스 노트 및 체크섬](https://github.com/Estrella-071/tt-tool/releases/tag/v1.2.0)
+**[Windows x64 설치 프로그램 다운로드](https://github.com/Estrella-071/tt-tool/releases/download/v1.3.0/tt-tool-1.3.0-windows-x64-setup.exe)** · [v1.3.0 릴리스 노트 및 체크섬](https://github.com/Estrella-071/tt-tool/releases/tag/v1.3.0)
 
 ![한국어 기본 창에 휴대전화 연결 영역, 미리보기, 활동 전환, 언어 선택 버튼이 표시된 모습](docs/images/tt-tool/ko-main.png)
 
@@ -29,9 +29,11 @@ tt tool은 Android용 Clash of Critters의 낚시와 유적 탐험을 Windows에
 
 ## 업데이트 및 관리
 
-앱 창 하단의 **관리** 메뉴에서 GitHub의 최신 릴리스를 수동으로 확인하거나 앱 폴더 및 데이터 폴더를 열 수 있습니다. 업데이트가 있으면 확인 후 브라우저에서 릴리스 페이지가 열립니다. 설치 프로그램을 내려받아 실행하면 업데이트할 수 있습니다.
+창 하단의 **관리 → 업데이트 확인**을 선택합니다. 설치 프로그램으로 설치한 v1.3.0 이상에서는 앱 안에서 새 안정 버전을 내려받을 수 있습니다. 설치 파일의 SHA-256을 검증한 뒤, 현재 활동을 끝내고 앱을 닫아 기존 위치에 업데이트할지 묻습니다. 업데이트 확인과 다운로드는 직접 시작합니다.
 
-Windows 설치 프로그램으로 설치한 경우 이 메뉴에서 제거도 시작할 수 있습니다. 업데이트할 때 데이터가 유지됩니다. 앱을 제거할 때 **tt tool 로컬 데이터도 삭제**를 선택하면 함께 삭제할 수 있습니다. 자세한 내용은 [Windows 설치 안내(영어)](docs/INSTALLER.md)를 참고하세요.
+v1.2.0에서 업데이트하려면 v1.3.0 설치 프로그램을 내려받고, tt tool을 닫은 뒤 실행하세요. 앱 안에서 업데이트할 수 없으면 **릴리스 페이지 열기**를 선택해 직접 내려받을 수 있습니다.
+
+**관리** 메뉴에서 앱 또는 데이터 폴더를 열고 앱 제거를 시작할 수 있습니다. 제거 확인 화면에는 설치 위치가 표시됩니다. 업데이트와 기본 제거 과정에서는 데이터를 유지합니다. 데이터까지 지우려면 **tt tool 로컬 데이터도 삭제**를 선택하세요. 설치 프로그램에 디지털 서명이 없어 Windows에 ‘알 수 없는 게시자’로 표시될 수 있습니다. [Windows 설치 안내(영어)](docs/INSTALLER.md)
 
 ## 문제 해결 및 로컬 데이터
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## tt tool 1.3.0
+
+- Installed copies can check GitHub for the latest stable release on request, download it and verify the installer's SHA-256 hash. After confirmation, tt tool closes, updates in its existing folder and reopens. The updater cleans up the temporary installer. The GitHub release page remains available for manual updates.
+- Expand the Windows Setup license view and refine the four-language setup and removal screens.
+- Show the installation folder before uninstalling and report whether the removal finished and whether local data was kept or cleared. The completion screen can open the latest stable release.
+
 ## tt tool 1.2.0
 
 - Redesign the Windows setup and removal windows with rounded surfaces, custom action buttons and consistent spacing.
