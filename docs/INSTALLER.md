@@ -1,6 +1,6 @@
 # Windows x64 安裝包
 
-在 [tt tool Releases](https://github.com/Estrella-071/tt-tool/releases) 下載 `tt-tool-1.0.0-windows-x64-setup.exe`。安裝適用於 Windows 10 22H2／Windows 11 x64，在當前使用者的開始選單建立 **tt tool**。Python、Qt 和影像辨識套件已隨附。連接手機需要 [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) 和 [FFmpeg](https://ffmpeg.org/download.html#build-windows)。
+在 [tt tool Releases](https://github.com/Estrella-071/tt-tool/releases) 下載 `tt-tool-1.0.1-windows-x64-setup.exe`。安裝適用於 Windows 10 22H2／Windows 11 x64，在當前使用者的開始選單建立 **tt tool**。Python、Qt 和影像辨識套件已隨附。連接手機需要 [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) 和 [FFmpeg](https://ffmpeg.org/download.html#build-windows)。
 
 啟動安裝程式後先選擇繁體中文、English、日本語或 한국어。首次安裝時工具沿用這個語言。更新版本時，工具保留既有的語言偏好。
 
@@ -11,7 +11,7 @@
 安裝程式未進行 Authenticode 簽章。可用 PowerShell 計算 SHA-256，和同一 Release 的 `SHA256SUMS.txt` 比對。
 
 ```powershell
-Get-FileHash .\tt-tool-1.0.0-windows-x64-setup.exe -Algorithm SHA256
+Get-FileHash .\tt-tool-1.0.1-windows-x64-setup.exe -Algorithm SHA256
 ```
 
 ## 維護者

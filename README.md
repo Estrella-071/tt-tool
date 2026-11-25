@@ -4,7 +4,7 @@
 
 tt tool 是 Windows 上的 Android 手機活動助手，支援《塔塔冒險隊》（Clash of Critters）的釣魚與遺跡探險。透過 USB 連線預覽手機畫面，辨識在電腦上執行。選擇活動並按下開始後才會操作手機。
 
-**[下載 Windows x64 安裝程式](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.0/tt-tool-1.0.0-windows-x64-setup.exe)** · [v1.0.0 版本資訊與檔案校驗](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.0)
+**[下載 Windows x64 安裝程式](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.1/tt-tool-1.0.1-windows-x64-setup.exe)** · [v1.0.1 版本資訊與檔案校驗](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.1)
 
 ![繁體中文主視窗，顯示連線區、手機預覽、釣魚與遺跡探險切換，以及右下角的語言選單](docs/images/tt-tool/zh_TW-main.png)
 

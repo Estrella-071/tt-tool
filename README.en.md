@@ -4,7 +4,7 @@
 
 tt tool is a Windows companion for fishing and Ruins Adventure in Clash of Critters on Android. It previews the phone over USB and recognizes activity screens locally. Phone input begins after you select an activity and start a session.
 
-**[Download the Windows x64 installer](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.0/tt-tool-1.0.0-windows-x64-setup.exe)** · [v1.0.0 release notes and checksums](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.0)
+**[Download the Windows x64 installer](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.1/tt-tool-1.0.1-windows-x64-setup.exe)** · [v1.0.1 release notes and checksums](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.1)
 
 ![tt tool main window in English, with the phone connection area, preview, activity selector and language button](docs/images/tt-tool/en-main.png)
 

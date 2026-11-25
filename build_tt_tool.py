@@ -11,7 +11,7 @@ import tempfile
 from build_windows import fetch, unpack_runtime, unpack_wheel, validate_runtime
 from fisher.config import ROOT
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 NAME = f"tt-tool-{VERSION}-windows-x64"
 COMPONENTS = ROOT / "packaging" / "tt-tool-runtime.lock.json"
 LAUNCHER = "tt_tool_launcher.py"

@@ -4,7 +4,7 @@
 
 tt tool は、Android 版『Clash of Critters』の釣りと遺跡探検を Windows から操作するツールです。USB 経由でスマートフォンの画面をプレビューし、PC 上で画面を認識します。アクティビティを選んで開始すると、スマートフォンへの入力が始まります。
 
-**[Windows x64 インストーラーをダウンロード](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.0/tt-tool-1.0.0-windows-x64-setup.exe)** · [v1.0.0 のリリースノートとチェックサム](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.0)
+**[Windows x64 インストーラーをダウンロード](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.1/tt-tool-1.0.1-windows-x64-setup.exe)** · [v1.0.1 のリリースノートとチェックサム](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.1)
 
 ![日本語のメインウィンドウ。スマートフォンの接続、プレビュー、アクティビティの切り替え、言語ボタンが表示されている](docs/images/tt-tool/ja-main.png)
 

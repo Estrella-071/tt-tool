@@ -374,9 +374,13 @@ def translate(text, language='zh_TW'):
                 f'取得 {capture} fps · 認識 {recognition} fps · プレビュー {preview} fps · フレーム経過 {age} ms',
                 f'캡처 {capture} fps · 인식 {recognition} fps · 미리보기 {preview} fps · 프레임 경과 {age} ms')[index]
 
-    foreground = re.fullmatch(r'持續確認手機前景為\s*(.+)，已暫停', text)
-    if foreground:
-        package = foreground.group(1)
+    foreground_prefix = '持續確認手機前景為'
+    foreground_suffix = '，已暫停'
+    if text.startswith(foreground_prefix) and text.endswith(foreground_suffix):
+        package = text[len(foreground_prefix):-len(foreground_suffix)].strip()
+    else:
+        package = ''
+    if package and '\n' not in package:
         return (f'Foreground app remains {package}; paused',
                 f'前面のアプリが {package} のため一時停止',
                 f'포그라운드 앱이 {package}이므로 일시정지')[index]

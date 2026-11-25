@@ -1,0 +1,38 @@
+name: SonarQube
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analysis:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set Elasticsearch limits on the hosted runner
+        run: |
+          sudo sysctl -w vm.max_map_count=524288
+          if [ "$(sysctl -n fs.file-max)" -lt 131072 ]; then
+            sudo sysctl -w fs.file-max=131072
+          fi
+      - name: Run the SonarQube analysis
+        run: python3 packaging/ci_sonar.py --report-dir "$RUNNER_TEMP/tt-tool-sonar-report"
+      - name: Save the summary and finding locations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sonar-summary
+          path: |
+            ${{ runner.temp }}/tt-tool-sonar-report/sonar-summary.json
+            ${{ runner.temp }}/tt-tool-sonar-report/sonar-locations.json
+          if-no-files-found: ignore

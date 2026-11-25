@@ -73,6 +73,10 @@ class LocalizationTests(unittest.TestCase):
         source = '持續確認手機前景為 com.example.game，已暫停'
         for lang in ('en', 'ja', 'ko'):
             self.assertIn('com.example.game', translate(source, lang))
+        self.assertEqual(translate('持續確認手機前景為   com.example.game ，已暫停', 'en'),
+                         'Foreground app remains com.example.game; paused')
+        self.assertEqual(translate('持續確認手機前景為 ，已暫停', 'en'),
+                         '持續確認手機前景為 ，已暫停')
         self.assertIn('12', translate('影像串流中斷，正在重連（第 12 次）', 'en'))
         self.assertIn('whole number', translate('ruins_tap_max 必須為整數', 'en'))
         self.assertIn('FIGHT', translate('遺跡按鈕 FIGHT 位置無效', 'ja'))
