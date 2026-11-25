@@ -644,13 +644,14 @@ class PhoneRunner:
                                "image": preview_frame(self.preview.is_set(), self.full_preview.is_set(), last_frame, display, obs, decision.predicted_x, box, self.alignment)})
                     last_ui = now
                     last_ui_sequence = sequence
+                # Wake for a new frame or the planned input deadline, whichever
+                # comes first. A fixed 25 ms wait can miss a narrow target when
+                # the next frame arrives after the planned send time.
+                wait_time = .025
                 if self.pending and self.active.is_set():
                     remaining = self.pending[0].send_at-time.perf_counter()
-                    if 0 < remaining < .020:
-                        time.sleep(min(.001, remaining))
-                        continue
-                # Wake on producer publication, not a coarse Windows polling timer.
-                self.capture.available.wait(.025)
+                    wait_time = min(wait_time, max(0., remaining))
+                self.capture.available.wait(wait_time)
         except (OSError, ValueError, cv2.error) as exc:
             self._pause(str(exc))
             self.emit({"error": str(exc), "fatal": True})
