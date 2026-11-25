@@ -1,6 +1,6 @@
 # Windows installer redistribution notices
 
-tt tool is distributed under GPL-3.0-only. See the bundled `LICENSE` and `NOTICE.md`. The corresponding application source and installation scripts are available from [the v1.2.0 source tree](https://github.com/Estrella-071/tt-tool/tree/v1.2.0). The installer contains source files for the phone app as well.
+tt tool is distributed under GPL-3.0-only. See the bundled `LICENSE` and `NOTICE.md`. The corresponding application, installer and updater sources are available from [the v1.3.0 source tree](https://github.com/Estrella-071/tt-tool/tree/v1.3.0). The installer contains source files for the phone app as well.
 
 - Qt 6.11.0, PySide6 Essentials 6.11.0 and Shiboken 6.11.0 are used under their GPLv3 community license option. The GNU GPL license text is included as `LICENSE`. Download [Qt 6.11.0 source](https://download.qt.io/archive/qt/6.11/6.11.0/single/) and [PySide6 and Shiboken 6.11.0 source](https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.11.0-src/) from Qt. Versioned wheel URLs and digests are in `DEPENDENCIES.json`. Qt libraries are installed as separate files. See [Qt licensing information](https://doc.qt.io/qt-6/licensing.html) and [Qt for Python notices](https://doc.qt.io/qtforpython-6/licenses.html).
 - CPython and Tcl/Tk licenses accompany the runtime. NumPy and OpenCV notices are in their installed packages and metadata directories. Their exact versions and download URLs are in `DEPENDENCIES.json`. The optional FFmpeg binary from the OpenCV video I/O wheel is excluded.

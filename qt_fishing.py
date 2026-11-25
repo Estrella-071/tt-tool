@@ -23,6 +23,10 @@ from fisher.ruins import RuinsController
 from fisher.ruins_runtime import RuinsRunner
 from fisher.visual_settings import VisualSettingsDialog
 
+APP_USER_MODEL_ID = 'Estrella071.tt-tool'
+INSTALL_RUNNING_MUTEX = APP_USER_MODEL_ID + '.Running'
+INSTALL_CLOSE_EVENT = APP_USER_MODEL_ID + '.Close'
+
 STYLE = '''
 QWidget { background:transparent; color:#302e3d; font-family:"Microsoft JhengHei UI"; font-size:14px; }
 QWidget#shell {background:#e9e6ee; border-radius:28px;}
@@ -247,6 +251,10 @@ class FishingWindow(QtWidgets.QMainWindow):
         except (OSError,ValueError,TypeError,AttributeError):
             self.ui_preferences = {}
         self.draft_settings=deepcopy(self.saved);self.pending_profile_reset=set()
+        self.window_fade = QtCore.QPropertyAnimation(self, b'windowOpacity', self)
+        self.window_fade.finished.connect(self.finish_window_fade)
+        self.fade_action = None
+        self.close_after_fade = False
         self.maintenance = Maintenance(self, install_root)
         self.build();self.timer=QtCore.QTimer(self);self.timer.setTimerType(QtCore.Qt.TimerType.PreciseTimer);self.timer.timeout.connect(self.poll);self.timer.start(12);self.discovery_timer=QtCore.QTimer(self);self.discovery_timer.timeout.connect(self.scan_if_needed);self.discovery_timer.start(5000);QtCore.QTimer.singleShot(150,self.refresh)
     def button(self,text,fn,kind=None):
@@ -272,7 +280,7 @@ class FishingWindow(QtWidgets.QMainWindow):
         if widget.text()!=value:widget.setText(value)
     def build(self):
         base=QtWidgets.QWidget();base.setObjectName('shell');self.setCentralWidget(base);page=self.page=QtWidgets.QVBoxLayout(base);page.setContentsMargins(28,24,28,24);page.setSpacing(18)
-        head=QtWidgets.QHBoxLayout();head.setSpacing(6);head.addWidget(self.label('tt tool','brand'));head.addWidget(self.label('手機活動助手','muted'));head.addStretch();head.addWidget(self.label('ADB  ·  USB','muted'));head.addSpacing(12);head.addWidget(WindowButton('minimize',self.showMinimized));self.max_button=WindowButton('maximize',self.toggle_maximize);head.addWidget(self.max_button);head.addWidget(WindowButton('close',self.close));page.addLayout(head)
+        head=QtWidgets.QHBoxLayout();head.setSpacing(6);head.addWidget(self.label('tt tool','brand'));head.addWidget(self.label('手機活動助手','muted'));head.addStretch();head.addWidget(self.label('ADB  ·  USB','muted'));head.addSpacing(12);head.addWidget(WindowButton('minimize',self.minimize_with_fade));self.max_button=WindowButton('maximize',self.toggle_maximize);head.addWidget(self.max_button);head.addWidget(WindowButton('close',self.close));page.addLayout(head)
         hero=QtWidgets.QFrame();hero.setObjectName('hero');hl=self.hero_layout=QtWidgets.QBoxLayout(QtWidgets.QBoxLayout.Direction.LeftToRight,hero);hl.setContentsMargins(24,18,24,18);hl.setSpacing(14)
         status_block=QtWidgets.QWidget();status_layout=QtWidgets.QVBoxLayout(status_block);status_layout.setContentsMargins(0,0,0,0);status_layout.setSpacing(4)
         self.headline=self.label('連接你的手機','heroTitle');self.status_effect=QtWidgets.QGraphicsOpacityEffect(self.headline);self.headline.setGraphicsEffect(self.status_effect);self.status_effect.setOpacity(1);self.status_animation=QtCore.QPropertyAnimation(self.status_effect,b'opacity',self);self.status_animation.setDuration(650);self.status_animation.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic);self.status_slide=QtCore.QPropertyAnimation(self.headline,b'pos',self);self.status_slide.setDuration(650);self.status_slide.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic);self.detail=self.label('開啟 USB 偵錯並允許這台電腦','heroDetail');status_layout.addWidget(self.headline);status_layout.addWidget(self.detail)
@@ -310,6 +318,9 @@ class FishingWindow(QtWidgets.QMainWindow):
         body.addWidget(right,2)
         self.compact_controls=QtWidgets.QFrame();compact_row=QtWidgets.QHBoxLayout(self.compact_controls);compact_row.setContentsMargins(0,0,0,0);compact_row.setSpacing(10);self.compact_start=self.button('開始釣魚',self.toggle_fishing,'primary');self.compact_pause=self.button('結束',self.end,'danger');compact_row.addWidget(self.compact_start,2);compact_row.addWidget(self.compact_pause,1);page.addWidget(self.compact_controls);self.compact_controls.hide()
         foot=QtWidgets.QHBoxLayout();self.metrics=self.label('等待連線','muted');foot.addWidget(self.metrics,1)
+        credit = self.label('Made with ♡ by 71', 'muted')
+        credit.setWordWrap(False)
+        foot.addWidget(credit)
         self.maintenance_button = self.button('工具維護', self.show_maintenance_menu)
         foot.addWidget(self.maintenance_button)
         self.language_button=self.button(dict(LANGUAGE_OPTIONS)[self.language],self.show_language_menu);self.language_button.setToolTip(self.tr('語言'));foot.addWidget(self.language_button)
@@ -700,16 +711,122 @@ class FishingWindow(QtWidgets.QMainWindow):
             self.move(event.globalPosition().toPoint()-self.drag_pos);event.accept()
     def mouseReleaseEvent(self,event):
         self.drag_pos=None
+    @staticmethod
+    def motion_enabled():
+        if sys.platform != 'win32' or QtGui.QGuiApplication.platformName() != 'windows':
+            return False
+        import ctypes
+        animation = ctypes.c_int()
+        succeeded = ctypes.windll.user32.SystemParametersInfoW(0x1042, 0, ctypes.byref(animation), 0)
+        return bool(succeeded and animation.value)
+    def fade_window(self, target, action=None):
+        self.window_fade.stop()
+        self.fade_action = action
+        self.window_fade.setStartValue(self.windowOpacity())
+        self.window_fade.setEndValue(target)
+        self.window_fade.setDuration(250 if target else 180)
+        curve = QtCore.QEasingCurve.Type.OutCubic if target else QtCore.QEasingCurve.Type.InCubic
+        self.window_fade.setEasingCurve(curve)
+        self.window_fade.start()
+    def showEvent(self, event):
+        if self.motion_enabled() and not self.isMinimized() and self.fade_action != 'close':
+            self.setWindowOpacity(0)
+            self.fade_window(1)
+        elif self.fade_action is None:
+            self.setWindowOpacity(1)
+        super().showEvent(event)
+    def changeEvent(self, event):
+        if (event.type() == QtCore.QEvent.Type.WindowStateChange
+                and event.oldState() & QtCore.Qt.WindowState.WindowMinimized
+                and not self.isMinimized() and self.motion_enabled()):
+            self.setWindowOpacity(0)
+            self.fade_window(1)
+        super().changeEvent(event)
+    def minimize_with_fade(self):
+        if self.fade_action is not None or self.isMinimized():
+            return
+        if self.motion_enabled():
+            self.fade_window(0, 'minimize')
+        else:
+            self.showMinimized()
+    def finish_window_fade(self):
+        action, self.fade_action = self.fade_action, None
+        if action == 'minimize':
+            self.showMinimized()
+            self.setWindowOpacity(1)
+        elif action == 'close':
+            self.close_after_fade = True
+            self.close()
     def closeEvent(self,event):
-        if self.runner:self.runner.close()
+        for dialog in self.findChildren(QtWidgets.QDialog):
+            if dialog.isVisible():
+                dialog.reject()
+        if not self.close_after_fade and self.isVisible() and not self.isMinimized() and self.motion_enabled():
+            event.ignore()
+            if self.fade_action != 'close':
+                self.fade_window(0, 'close')
+            return
+        self.window_fade.stop()
+        self.close_after_fade = False
+        self.fade_action = None
+        if self.runner:
+            self.runner.close()
+            self.runner = None
         super().closeEvent(event)
 
+def watch_installer_close_request(app, window):
+    import ctypes
+    from ctypes import wintypes
+
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.CreateMutexW.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR)
+    kernel.CreateMutexW.restype = wintypes.HANDLE
+    kernel.CreateEventW.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR)
+    kernel.CreateEventW.restype = wintypes.HANDLE
+    kernel.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    kernel.WaitForSingleObject.restype = wintypes.DWORD
+    kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+    kernel.CloseHandle.restype = wintypes.BOOL
+
+    mutex = kernel.CreateMutexW(None, False, INSTALL_RUNNING_MUTEX)
+    if mutex and ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS
+        kernel.CloseHandle(mutex)
+        window.auto_connect = False
+        window.pending_start = False
+        window.maintenance.dialog('tt tool', 'tt tool 已開啟，請從工作列返回。')
+        return False
+    event = kernel.CreateEventW(None, False, False, INSTALL_CLOSE_EVENT)
+    poll = QtCore.QTimer(window)
+    if event:
+        def close_if_requested():
+            if kernel.WaitForSingleObject(event, 0) == 0:  # WAIT_OBJECT_0
+                window.close()
+
+        poll.timeout.connect(close_if_requested)
+        poll.start(100)
+
+    def release_resources():
+        poll.stop()
+        for handle in (event, mutex):
+            if handle:
+                kernel.CloseHandle(handle)
+
+    app.aboutToQuit.connect(release_resources)
+    return True
+
 def main(icon_path=None, *, install_root=None):
+    if sys.platform == 'win32':
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
     app = QtWidgets.QApplication([arg for arg in sys.argv if arg not in ('--ruins', '--start')])
     app.setStyleSheet(STYLE)
-    if icon_path is not None:
+    if icon_path is None:
+        icon_path = Path(__file__).resolve().parent / 'packaging/tt-tool.ico'
+    if Path(icon_path).is_file():
         app.setWindowIcon(QtGui.QIcon(str(icon_path)))
     window = FishingWindow('ruins' if '--ruins' in sys.argv else 'fishing', '--start' in sys.argv, install_root=install_root)
+    if sys.platform == 'win32' and install_root is not None and not watch_installer_close_request(app, window):
+        return
     window.show()
     sys.exit(app.exec())
 if __name__=='__main__':main()
