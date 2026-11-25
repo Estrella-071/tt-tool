@@ -13,6 +13,7 @@ from collections import deque
 from copy import deepcopy
 from pathlib import Path
 import cv2
+cv2.setNumThreads(min(4, max(1, cv2.getNumThreads())))
 from PySide6 import QtCore, QtGui, QtWidgets
 from fisher.adb import Adb, PHONE_DEFAULTS, validate_phone_settings
 from fisher.adb_help import BRANDS, guide_for

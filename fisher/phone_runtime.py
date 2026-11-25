@@ -12,17 +12,30 @@ from .config import DEFAULTS, ROOT
 from .device_profiles import DeviceProfileStore
 from .controller import Controller, Decision
 from .vision import annotate, LABELS
+from .templates import W, H
 from .phone_vision import PhoneDetector
 
 
 CLASH_PACKAGE = "com.farlightgames.pgame.gp"
 
 
-def preview_frame(enabled, full, frame, display, obs, prediction):
+def preview_frame(enabled, full, frame, display, obs, prediction, box=None, alignment=(0., 0.)):
     if not enabled:
         return None
     if full:
-        return frame.image
+        if prediction is None or obs.state != "TIMING" or box is None:
+            return frame.image
+        x, y, width, height = box
+        scaled_height = max(H, round(height * W / width))
+        point_x = x + (prediction / W + alignment[0]) * width
+        point_y = y + (scaled_height - H + 399) * width / W + alignment[1] * height
+        if not (x <= point_x < x + width and y <= point_y < y + height):
+            return frame.image
+        image = frame.image.copy()
+        center = (round(point_x), round(point_y))
+        cv2.circle(image, center, 7, (30, 30, 30), 3, cv2.LINE_AA)
+        cv2.circle(image, center, 5, (255, 100, 255), 2, cv2.LINE_AA)
+        return image
     return annotate(display, obs, prediction)
 
 
@@ -628,7 +641,7 @@ class PhoneRunner:
                                "results": controller.result_count, "fps": fps, "capture_fps": self.capture.fps(now),
                                "capture_ms": last_frame.duration*1000, "action_ms": self.action_ms,
                                "age_ms": (now-last_frame.captured_at)*1000,
-                               "image": preview_frame(self.preview.is_set(), self.full_preview.is_set(), last_frame, display, obs, decision.predicted_x)})
+                               "image": preview_frame(self.preview.is_set(), self.full_preview.is_set(), last_frame, display, obs, decision.predicted_x, box, self.alignment)})
                     last_ui = now
                     last_ui_sequence = sequence
                 if self.pending and self.active.is_set():
