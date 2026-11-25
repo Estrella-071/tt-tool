@@ -44,6 +44,7 @@ QLabel#controlTitle {font-family:"Noto Serif TC"; font-size:32px; font-weight:70
 QLabel#controlSubtitle {font-size:15px; color:#625a70; background:transparent;}
 QLabel#statValue {font-family:"Noto Serif TC"; font-size:32px; font-weight:700; color:#514365; background:transparent;}
 QLabel#muted {color:#787386; font-size:12px; background:transparent;}
+QLabel#appVersion {font-size:12px; font-weight:600; color:#635875;}
 QLabel#brand {font-family:"Noto Serif TC"; font-size:27px; font-weight:800; color:#302b40; background:transparent;}
 QLabel#preview {background:#242231; color:#cbc5d7; border-radius:18px;}
 QPushButton {background:#edeaf2; color:#423b54; border:0; border-radius:16px; padding:11px 18px; font-weight:700; min-height:20px;}
@@ -285,7 +286,7 @@ class FishingWindow(QtWidgets.QMainWindow):
         if widget.text()!=value:widget.setText(value)
     def build(self):
         base=QtWidgets.QWidget();base.setObjectName('shell');self.setCentralWidget(base);page=self.page=QtWidgets.QVBoxLayout(base);page.setContentsMargins(28,24,28,24);page.setSpacing(18)
-        head=QtWidgets.QHBoxLayout();head.setSpacing(6);head.addWidget(self.label('tt tool','brand'));head.addWidget(self.label('手機活動助手','muted'));head.addStretch();head.addWidget(self.label('ADB  ·  USB','muted'));head.addSpacing(12);head.addWidget(WindowButton('minimize',self.minimize_with_fade));self.max_button=WindowButton('maximize',self.toggle_maximize);head.addWidget(self.max_button);head.addWidget(WindowButton('close',self.close));page.addLayout(head)
+        self.build_title_bar(page)
         hero=QtWidgets.QFrame();hero.setObjectName('hero');hl=self.hero_layout=QtWidgets.QBoxLayout(QtWidgets.QBoxLayout.Direction.LeftToRight,hero);hl.setContentsMargins(24,18,24,18);hl.setSpacing(14)
         status_block=QtWidgets.QWidget();status_layout=QtWidgets.QVBoxLayout(status_block);status_layout.setContentsMargins(0,0,0,0);status_layout.setSpacing(4)
         self.headline=self.label('連接你的手機','heroTitle');self.status_effect=QtWidgets.QGraphicsOpacityEffect(self.headline);self.headline.setGraphicsEffect(self.status_effect);self.status_effect.setOpacity(1);self.status_animation=QtCore.QPropertyAnimation(self.status_effect,b'opacity',self);self.status_animation.setDuration(650);self.status_animation.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic);self.status_slide=QtCore.QPropertyAnimation(self.headline,b'pos',self);self.status_slide.setDuration(650);self.status_slide.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic);self.detail=self.label('開啟 USB 偵錯並允許這台電腦','heroDetail');status_layout.addWidget(self.headline);status_layout.addWidget(self.detail)
@@ -338,6 +339,39 @@ class FishingWindow(QtWidgets.QMainWindow):
         self.space_shortcut.setAutoRepeat(False)
         QtWidgets.QApplication.instance().focusChanged.connect(self.update_space_shortcut)
         self.set_connected(False);self.apply_mode();self.retranslate_ui()
+    def build_title_bar(self, page):
+        head = self.title_layout = QtWidgets.QHBoxLayout()
+        head.setSpacing(6)
+        center = QtCore.Qt.AlignmentFlag.AlignVCenter
+        self.title_brand = self.label('tt tool', 'brand')
+        self.title_version = self.label(f'v{self.maintenance.version}', 'appVersion')
+        self.title_subtitle = self.label('手機活動助手', 'muted')
+        self.title_transport = self.label('ADB  ·  USB', 'muted')
+        for label in (self.title_brand, self.title_version, self.title_subtitle, self.title_transport):
+            label.setWordWrap(False)
+            label.setSizePolicy(QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Fixed)
+        head.addWidget(self.title_brand, alignment=center)
+        head.addWidget(self.title_version, alignment=center)
+        head.addSpacing(8)
+        head.addWidget(self.title_subtitle, alignment=center)
+        head.addStretch()
+        head.addWidget(self.title_transport, alignment=center)
+        head.addSpacing(10)
+        self.max_button = WindowButton('maximize', self.toggle_maximize)
+        for control in (WindowButton('minimize', self.minimize_with_fade), self.max_button,
+                        WindowButton('close', self.close)):
+            head.addWidget(control, alignment=center)
+        page.addLayout(head)
+
+    def fit_title_bar(self):
+        items = [self.title_layout.itemAt(index) for index in range(self.title_layout.count())]
+        width = sum(item.widget().sizeHint().width() if item.widget() is not None
+                    else item.sizeHint().width() for item in items)
+        width += self.title_layout.spacing() * (len(items) - 1)
+        margins = self.page.contentsMargins()
+        available = self.centralWidget().width() - margins.left() - margins.right()
+        self.title_subtitle.setVisible(available >= width)
+
     def show_language_menu(self):
         menu = QtWidgets.QMenu(self.language_button)
         for code,name in LANGUAGE_OPTIONS:
@@ -372,6 +406,7 @@ class FishingWindow(QtWidgets.QMainWindow):
             if widget is self.language_button:continue
             source=widget.property('i18n_source')
             if isinstance(source,str):widget.setText(self.tr(source))
+        self.fit_title_bar()
         self.language_button.setText(dict(LANGUAGE_OPTIONS)[self.language]);self.language_button.setToolTip(self.tr('語言'))
         self.maintenance_button.setToolTip(f"{self.tr('工具維護')} · v{self.maintenance.version}")
         self.device.setAccessibleName(self.tr('手機裝置'))
@@ -803,6 +838,7 @@ class FishingWindow(QtWidgets.QMainWindow):
         side=max(20 if short else 28,(self.width()-1680)//2)
         self.page.setContentsMargins(side,16 if short else 24,side,16 if short else 24)
         self.page.setSpacing(12 if short else 18)
+        self.fit_title_bar()
         self.hero_layout.setContentsMargins(20 if short else 24,10 if short else 18,20 if short else 24,10 if short else 18)
         self.hero_layout.setSpacing(8 if short else 14)
         desired=QtWidgets.QBoxLayout.Direction.TopToBottom if compact else QtWidgets.QBoxLayout.Direction.LeftToRight

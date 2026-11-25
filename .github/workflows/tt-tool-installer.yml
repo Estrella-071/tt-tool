@@ -7,6 +7,10 @@ on:
         description: Attach the tested installer to the matching draft release
         type: boolean
         default: false
+      validate_legacy_migration:
+        description: Test the one-time upgrade from the former v1.3.0 installer
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -55,9 +59,28 @@ jobs:
           "setup=dist/tt-tool-$version-windows-x64-setup.exe" >> $env:GITHUB_OUTPUT
           python build_tt_tool.py --iscc "$env:TT_TOOL_ISCC"
       - name: Test x64 installer, Start Menu and uninstall
+        shell: pwsh
         env:
           TT_TOOL_SETUP: ${{ steps.package.outputs.setup }}
-        run: pwsh -NoProfile -File packaging/smoke-installer.ps1 -SetupPath "$env:TT_TOOL_SETUP"
+          TT_TOOL_TEST_LEGACY: ${{ inputs.validate_legacy_migration }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:TT_TOOL_TEST_LEGACY -eq 'true') {
+            $filename = 'tt-tool-1.3.0-windows-x64-setup.exe'
+            $legacy = Join-Path $env:RUNNER_TEMP $filename
+            $downloadRoot = 'https://github.com/Estrella-071/tt-tool/releases/download'
+            try {
+              Invoke-WebRequest -Uri "$downloadRoot/v1.3.0/$filename" -OutFile $legacy
+            }
+            catch {
+              Invoke-WebRequest -Uri "$downloadRoot/v1.0.4/$filename" -OutFile $legacy
+            }
+            pwsh -NoProfile -File packaging/smoke-installer.ps1 -SetupPath "$env:TT_TOOL_SETUP" -LegacySetupPath $legacy
+          }
+          else {
+            pwsh -NoProfile -File packaging/smoke-installer.ps1 -SetupPath "$env:TT_TOOL_SETUP"
+          }
+          if ($LASTEXITCODE -ne 0) { throw "Installer smoke test failed ($LASTEXITCODE)" }
       - name: Calculate download checksum
         shell: pwsh
         env:

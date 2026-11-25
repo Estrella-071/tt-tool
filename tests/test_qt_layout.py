@@ -10,6 +10,7 @@ os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 from PySide6 import QtCore, QtGui, QtWidgets, QtTest
 from qt_fishing import FishingWindow, PhonePreview, traditional_text
 from fisher.adb import Device
+from fisher.project import VERSION
 from adb_app import PHONE_DEFAULTS
 import numpy as np
 
@@ -35,6 +36,25 @@ class QtLayoutTests(unittest.TestCase):
                     self.assertLessEqual(self.w.left.height(),self.w.body_scroll.viewport().height())
         self.assertEqual((self.w.minimumWidth(),self.w.minimumHeight()),(680,600))
         self.assertEqual((self.w.maximumWidth(),self.w.maximumHeight()),(3840,2160))
+    def test_title_bar_is_single_line_and_centered_at_minimum_width(self):
+        labels = (self.w.title_brand, self.w.title_version, self.w.title_subtitle, self.w.title_transport)
+        for width in (self.w.minimumWidth(), 1180):
+            self.w.resize(width, 750)
+            for language in ('zh_TW', 'en', 'ja', 'ko'):
+                with self.subTest(language=language, width=width):
+                    self.w.set_language(language, persist=False)
+                    self.app.processEvents()
+                    self.assertEqual(self.w.title_version.text(), f'v{VERSION}')
+                    if width == 1180:
+                        self.assertTrue(self.w.title_subtitle.isVisible())
+                    visible = [label for label in labels if label.isVisible()]
+                    self.assertTrue(all(label in visible for label in (self.w.title_brand, self.w.title_version, self.w.title_transport)))
+                    centers = [item.geometry().center().y() for item in (*visible, self.w.max_button)]
+                    self.assertLessEqual(max(centers)-min(centers), 1)
+                    for label in visible:
+                        self.assertFalse(label.wordWrap())
+                        self.assertGreaterEqual(label.width(), label.sizeHint().width())
+
     def test_default_size_shows_actions_and_graphical_settings_without_scrolling(self):
         self.w.resize(1180,900);QtTest.QTest.qWait(100)
         self.assertEqual(self.w.right_scroll.verticalScrollBar().maximum(),0)

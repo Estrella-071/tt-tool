@@ -4,14 +4,14 @@
 
 tt tool is a Windows companion for fishing and Ruins Adventure in Clash of Critters on Android. It previews the phone over USB and recognizes activity screens locally. Phone input begins after you select an activity and start a session.
 
-**[Download the Windows x64 installer](https://github.com/Estrella-071/tt-tool/releases/download/v1.3.0/tt-tool-1.3.0-windows-x64-setup.exe)** · [v1.3.0 release notes and checksums](https://github.com/Estrella-071/tt-tool/releases/tag/v1.3.0)
+**[Download the Windows x64 installer](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.5/tt-tool-1.0.5-windows-x64-setup.exe)** · [v1.0.5 release notes and checksums](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.5)
 
 ![tt tool main window in English, with the phone connection area, preview, activity selector and language button](docs/images/tt-tool/en-main.png)
 
 ## Install and get started
 
 1. Run the installer on Windows 10 22H2 or Windows 11 (x64) and choose a language. The installer includes Python and Qt. On a first install, you can change the installation folder. The Start menu shortcut is selected by default, and the desktop shortcut is optional. Choose whether to open **tt tool** when setup finishes. On first launch, the app uses the language you selected during setup.
-2. Install [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) and [FFmpeg](https://ffmpeg.org/download.html#build-windows). Add the folders containing their executables to your user `Path`, then run `adb version` and `ffmpeg -version` in a fresh PowerShell window. If ADB is missing, open **ADB tool location…** in the device menu to point to an existing adb.exe. Reopen tt tool after changing `Path`.
+2. Install [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) and [FFmpeg](https://ffmpeg.org/download.html#build-windows). Open **Connection tools** from the device menu to select either executable if it is missing, then choose **Check and retry**.
 3. Use **USB connection guide** in tt tool or the [manufacturer guide](docs/USB-DEBUGGING.md) to enable USB debugging, connect the phone with a USB data cable and approve the debugging prompt. tt tool connects automatically when exactly one authorized phone is present. If you have several, select one and choose **Connect**.
 4. Keep the phone in portrait orientation and bring the appropriate fishing or ruins screen to the foreground. Check that the preview shows the whole screen and choose **Start fishing** or **Start exploring**. With the tt tool window focused, Space starts, pauses or resumes the activity, and Esc ends the session. Use the button at the bottom right to change the interface language.
 
@@ -29,9 +29,9 @@ If you skip both shortcuts, open the **tt tool** shortcut inside the installatio
 
 ## Updates and maintenance
 
-From the bottom of the window, choose **Maintenance → Check for updates**. In installer-based copies from v1.3.0 onward, you can download the next stable release in tt tool. The app checks the installer's SHA-256 hash and asks before ending the current activity, closing the app, and updating it in place. Update checks and downloads run on request.
+From the bottom of the window, choose **Maintenance → Check for updates**. From v1.0.5 onward, installed copies can download and verify a new release, then update in place after you confirm.
 
-To upgrade from v1.2.0, download v1.3.0 and run the installer manually with tt tool closed. **Open releases** also provides a manual download if an in-app update is unavailable.
+If your installed app shows v1.1.0, v1.2.0, or v1.3.0, close tt tool and run the v1.0.5 installer once. The app keeps your settings. Use **Open releases** if you need to download the installer manually.
 
 Open the app and data folders or start the uninstaller from **Maintenance**. The uninstall confirmation shows the installation folder. Updates preserve your data, and uninstall keeps it by default. Select **Also delete local tt tool data** to remove it. Windows may display **Unknown publisher** because the installer is unsigned. [Windows installer guide](docs/INSTALLER.md)
 
