@@ -1,0 +1,20 @@
+{
+  "wheels": [
+    {
+      "name": "PySide6-Essentials",
+      "version": "6.11.0",
+      "filename": "pyside6_essentials-6.11.0-cp310-abi3-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/ff/37/ba95c6262836d2b286b4e05a9d16a5e870995d5d2503ac6adc6312208049/pyside6_essentials-6.11.0-cp310-abi3-win_amd64.whl",
+      "sha256": "3b3362882ad9389357a80504e600180006a957731fec05786fced7b038461fdf",
+      "size": 75793322
+    },
+    {
+      "name": "shiboken6",
+      "version": "6.11.0",
+      "filename": "shiboken6-6.11.0-cp310-abi3-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/72/f7/44c0c42c3f5f29dec457fd46ea0552174bcb8aa75becf03bbd90308ba07b/shiboken6-6.11.0-cp310-abi3-win_amd64.whl",
+      "sha256": "483ff78a73c7b3189ca924abc694318084f078bcfeaffa68e32024ff2d025ee1",
+      "size": 1222132
+    }
+  ]
+}

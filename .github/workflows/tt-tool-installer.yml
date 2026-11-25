@@ -1,0 +1,126 @@
+name: tt tool Windows x64 installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      attach_to_draft:
+        description: Attach the tested installer to the matching draft release
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.package.outputs.version }}
+      artifact_name: ${{ steps.package.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify and provision Inno Setup compiler
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $compilerRoot = Join-Path $env:RUNNER_TEMP 'tt-tool-inno-7.1.1'
+          New-Item -ItemType Directory -Path $compilerRoot | Out-Null
+          $installer = Join-Path $compilerRoot 'innosetup-7.1.1-x64.exe'
+          Invoke-WebRequest -Uri 'https://github.com/jrsoftware/issrc/releases/download/is-7_1_1/innosetup-7.1.1-x64.exe' -OutFile $installer
+          if ((Get-FileHash -LiteralPath $installer).Hash -ine '8a5a6711c3766a6e5fb74f280ba0e3551e719ce94538d901fdbd1f8f9920b3f0') {
+            throw 'Unexpected Inno Setup checksum'
+          }
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Pyrsys') {
+            throw "Inno Setup publisher verification failed ($($signature.Status))"
+          }
+          $compilerDir = Join-Path $compilerRoot 'compiler'
+          $process = Start-Process -FilePath $installer -ArgumentList @('/PORTABLE=1', '/CURRENTUSER', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', ('/DIR="' + $compilerDir + '"')) -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Compiler setup failed ($($process.ExitCode))" }
+          "TT_TOOL_ISCC=$(Join-Path $compilerDir 'ISCC.exe')" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Build and check runtime
+        id: package
+        shell: pwsh
+        run: |
+          $version = python build_tt_tool.py --version
+          if ($LASTEXITCODE -ne 0 -or $version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid package version' }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "name=tt-tool-$version-windows-x64" >> $env:GITHUB_OUTPUT
+          "setup=dist/tt-tool-$version-windows-x64-setup.exe" >> $env:GITHUB_OUTPUT
+          python build_tt_tool.py --iscc "$env:TT_TOOL_ISCC"
+      - name: Test x64 installer, Start Menu and uninstall
+        env:
+          TT_TOOL_SETUP: ${{ steps.package.outputs.setup }}
+        run: pwsh -NoProfile -File packaging/smoke-installer.ps1 -SetupPath "$env:TT_TOOL_SETUP"
+      - name: Calculate download checksum
+        shell: pwsh
+        env:
+          TT_TOOL_SETUP: ${{ steps.package.outputs.setup }}
+        run: |
+          $item = Get-Item -LiteralPath $env:TT_TOOL_SETUP
+          $hash = (Get-FileHash -LiteralPath $item.FullName).Hash.ToLowerInvariant()
+          $manifest = Join-Path $item.DirectoryName 'SHA256SUMS.txt'
+          [IO.File]::WriteAllText($manifest, "$hash  $($item.Name)`n", [Text.Encoding]::ASCII)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: |
+            ${{ steps.package.outputs.setup }}
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          compression-level: 0
+
+  attach:
+    if: ${{ inputs.attach_to_draft }}
+    needs: installer
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.installer.outputs.artifact_name }}
+      - name: Attach the verified installer to the draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TT_TOOL_VERSION: ${{ needs.installer.outputs.version }}
+        run: |
+          if [[ ! "$TT_TOOL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'Invalid package version' >&2
+            exit 1
+          fi
+          tag="v$TT_TOOL_VERSION"
+          setup="tt-tool-$TT_TOOL_VERSION-windows-x64-setup.exe"
+          manifest="$(cat -- SHA256SUMS.txt)"
+          checksum="$(sha256sum -- "$setup")"
+          if [[ "$manifest" != "$checksum" ]]; then
+            echo 'Installer checksum does not match the Windows build' >&2
+            exit 1
+          fi
+
+          refs="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$tag" --jq '.[].ref')"
+          while IFS= read -r ref; do
+            [[ "$ref" == "refs/tags/$tag" ]] || continue
+            tagged_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq '.sha')"
+            if [[ "$tagged_sha" != "$GITHUB_SHA" ]]; then
+              echo "Tag $tag points to a different commit" >&2
+              exit 1
+            fi
+            break
+          done <<< "$refs"
+
+          release="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,tagName,targetCommitish)"
+          if ! jq -e --arg tag "$tag" --arg sha "$GITHUB_SHA" \
+            '.isDraft and .tagName == $tag and .targetCommitish == $sha' <<< "$release" > /dev/null; then
+            echo "Expected a $tag draft release with target $GITHUB_SHA" >&2
+            exit 1
+          fi
+          gh release upload "$tag" "$setup" SHA256SUMS.txt --repo "$GITHUB_REPOSITORY"

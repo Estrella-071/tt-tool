@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+config.json
+phone_settings.json
+device_profiles.json
+tt_tool_ui.json
+speed_profile.json
+logs/
+snapshots/
+recordings/
+dist/
+.build-cache/
+work/
+replay_output/
+trial_records/
+trial_exports/
