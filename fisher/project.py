@@ -3,7 +3,7 @@
 import webbrowser
 
 PROJECT_URL = "https://github.com/Estrella-071/tt-tool"
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 ISSUES_URL = "https://github.com/Estrella-071/tt-tool/issues"
 FREE_NOTICE = "免费提供，用于学习交流；无需购买授权或激活码。"
 
