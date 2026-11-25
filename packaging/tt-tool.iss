@@ -6,7 +6,8 @@ AppId={{74A2509B-977F-47DC-8C34-409B3CB77523}
 AppName=tt tool
 AppVersion={#AppVersion}
 VersionInfoVersion={#AppVersion}
-AppPublisher=tt tool contributors
+AppPublisher=71
+VersionInfoCompany=71
 AppPublisherURL=https://github.com/Estrella-071/tt-tool
 AppSupportURL=https://github.com/Estrella-071/tt-tool/issues
 DefaultDirName={localappdata}\Programs\tt tool
@@ -17,7 +18,10 @@ DisableDirPage=auto
 UsePreviousAppDir=yes
 AllowNetworkDrive=no
 ShowLanguageDialog=yes
+UsePreviousLanguage=yes
+DisableStartupPrompt=yes
 PrivilegesRequired=lowest
+AppMutex=Estrella071.tt-tool.Running
 SetupArchitecture=x64
 ArchitecturesAllowed=x64compatible and not arm64
 ArchitecturesInstallIn64BitMode=x64compatible and not arm64
@@ -48,9 +52,9 @@ Type: files; Name: "{group}\tt tool.lnk"; Check: RemoveStartMenuShortcut
 Type: files; Name: "{userdesktop}\tt tool.lnk"; Check: RemoveDesktopShortcut
 
 [Icons]
-Name: "{app}\tt tool"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "{#LauncherArguments} ""{app}\app\tt_tool_launcher.py"""; WorkingDir: "{app}"; IconFilename: "{app}\tt-tool.ico"
-Name: "{group}\tt tool"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "{#LauncherArguments} ""{app}\app\tt_tool_launcher.py"""; WorkingDir: "{app}"; IconFilename: "{app}\tt-tool.ico"; Tasks: startmenu; Check: CanCreateStartMenuShortcut
-Name: "{userdesktop}\tt tool"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "{#LauncherArguments} ""{app}\app\tt_tool_launcher.py"""; WorkingDir: "{app}"; IconFilename: "{app}\tt-tool.ico"; Tasks: desktop; Check: CanCreateDesktopShortcut
+Name: "{app}\tt tool"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "{#LauncherArguments} ""{app}\app\tt_tool_launcher.py"""; WorkingDir: "{app}"; IconFilename: "{app}\tt-tool.ico"; AppUserModelID: "Estrella071.tt-tool"
+Name: "{group}\tt tool"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "{#LauncherArguments} ""{app}\app\tt_tool_launcher.py"""; WorkingDir: "{app}"; IconFilename: "{app}\tt-tool.ico"; AppUserModelID: "Estrella071.tt-tool"; Tasks: startmenu; Check: CanCreateStartMenuShortcut
+Name: "{userdesktop}\tt tool"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "{#LauncherArguments} ""{app}\app\tt_tool_launcher.py"""; WorkingDir: "{app}"; IconFilename: "{app}\tt-tool.ico"; AppUserModelID: "Estrella071.tt-tool"; Tasks: desktop; Check: CanCreateDesktopShortcut
 
 [Run]
 Filename: "{app}\runtime\pythonw.exe"; Parameters: "{#LauncherArguments} ""{app}\app\tt_tool_launcher.py"""; WorkingDir: "{app}"; Description: "{cm:LaunchTool}"; Flags: nowait postinstall skipifsilent unchecked

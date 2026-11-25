@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Release lookup, maintenance navigation, and uninstall handoff regressions."""
+import json
 import os
 import sys
 import tempfile
@@ -12,6 +13,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6 import QtNetwork, QtWidgets
 
 from fisher.maintenance import latest_version, uninstall_program, version_parts
+from fisher.project import PROJECT_URL
 from qt_fishing import FishingWindow
 
 
@@ -59,7 +61,7 @@ class MaintenanceTests(unittest.TestCase):
         maintenance.reply = Mock()
         maintenance.reply.attribute.return_value = 200
         maintenance.reply.error.return_value = QtNetwork.QNetworkReply.NetworkError.NoError
-        maintenance.reply.readAll.return_value = b'{"tag_name":"v99.1.0"}'
+        maintenance.reply.read.return_value = b'{"tag_name":"v99.1.0"}'
         with patch.object(maintenance, "offer_releases") as offer:
             maintenance.update_ready()
         offer.assert_called_once_with("有新版本", f"You have v{maintenance.version}. Version v99.1.0 is available.")
@@ -73,10 +75,56 @@ class MaintenanceTests(unittest.TestCase):
         maintenance.reply = Mock()
         maintenance.reply.attribute.return_value = 200
         maintenance.reply.error.return_value = QtNetwork.QNetworkReply.NetworkError.NoError
-        maintenance.reply.readAll.return_value = f'{{"tag_name":"v{maintenance.version}"}}'.encode()
+        maintenance.reply.read.return_value = f'{{"tag_name":"v{maintenance.version}"}}'.encode()
         with patch.object(maintenance, "offer_releases") as offer:
             maintenance.update_ready()
         offer.assert_called_once_with("更新檢查", f"You’re up to date on v{maintenance.version}.")
+
+    def test_only_installed_copies_offer_a_verified_asset(self):
+        window = FishingWindow()
+        self.addCleanup(window.deleteLater)
+        maintenance = window.maintenance
+        tag = "v99.1.0"
+        name = "tt-tool-99.1.0-windows-x64-setup.exe"
+        asset = {"name": name, "size": 42, "state": "uploaded", "digest": "sha256:" + "a" * 64,
+                 "browser_download_url": f"{PROJECT_URL}/releases/download/{tag}/{name}"}
+        for helper in (None, Path("app/tt-tool-update-test.exe")):
+            with self.subTest(helper=helper):
+                maintenance.reply = Mock()
+                maintenance.reply.attribute.return_value = 200
+                maintenance.reply.error.return_value = QtNetwork.QNetworkReply.NetworkError.NoError
+                maintenance.reply.read.return_value = json.dumps({"tag_name": tag, "assets": [asset]}).encode()
+                with (patch("fisher.maintenance.installed_helper", return_value=helper),
+                      patch.object(maintenance, "offer_update") as install,
+                      patch.object(maintenance, "offer_releases") as browser):
+                    maintenance.update_ready()
+                if helper is None:
+                    browser.assert_called_once()
+                    install.assert_not_called()
+                else:
+                    browser.assert_not_called()
+                    self.assertEqual(install.call_args.args[1].name, name)
+
+    def test_explicit_confirmation_controls_install_handoff(self):
+        window = FishingWindow()
+        self.addCleanup(window.deleteLater)
+        maintenance = window.maintenance
+        helper = Path("app/tt-tool-update-test.exe")
+        file = Mock(installer=Path("tt-tool-99.1.0-windows-x64-setup.exe"))
+        file.asset.sha256 = "a" * 64
+        with (patch("fisher.maintenance.installed_helper", return_value=helper),
+              patch("fisher.maintenance.process_identity", return_value=("123", "456")),
+              patch("fisher.maintenance.QtCore.QProcess.startDetached", return_value=(True, 321)) as launch,
+              patch.object(maintenance, "dialog", return_value=False) as dialog,
+              patch.object(window, "close") as close):
+            self.assertFalse(maintenance.install_update(file))
+            launch.assert_not_called()
+            close.assert_not_called()
+            dialog.return_value = True
+            self.assertTrue(maintenance.install_update(file))
+            self.assertEqual(launch.call_args.args[0], str(helper))
+            self.assertEqual(launch.call_args.args[1][:4], ["123", "456", str(file.installer), "a" * 64])
+            close.assert_called_once_with()
 
     def test_uninstall_cancel_keeps_session_open(self):
         window = FishingWindow()
@@ -112,4 +160,5 @@ class MaintenanceTests(unittest.TestCase):
             for clear in (False, True):
                 dialog.return_value = (True, clear)
                 window.maintenance.uninstall()
+                self.assertIn("/TTTOOLCOMPLETE", launch.call_args.args[1])
                 self.assertEqual("/TTTOOLCLEARDATA" in launch.call_args.args[1], clear)

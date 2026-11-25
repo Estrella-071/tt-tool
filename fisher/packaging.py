@@ -16,6 +16,7 @@ PUBLIC_FILES = (
     "README.md", "LICENSE", "NOTICE.md", "CHANGELOG.md", "requirements.txt",
     "README.en.md", "README.zh-TW.md", "README.ja.md", "README.ko.md", "docs/EMULATOR.md",
     "fisher/adb_help.py", "docs/USB-DEBUGGING.md", "fisher/maintenance.py", "tests/test_maintenance.py",
+    "fisher/updater.py", "tests/test_updater.py", "packaging/update-handoff.cs", "packaging/smoke-updater.ps1",
     "docs/INSTALLER.md", "docs/THIRD-PARTY.md", "build_tt_tool.py",
     "packaging/tt-tool.iss", "packaging/tt-tool-messages.iss", "packaging/tt-tool.ico",
     "packaging/tt-tool-ui.iss", "packaging/tt_tool_launcher.py",
