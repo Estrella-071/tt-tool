@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Intended for a disposable Windows x64 GitHub Actions runner.
-param([Parameter(Mandatory)] [string] $SetupPath)
+param([Parameter(Mandatory)] [string] $SetupPath, [string] $LegacySetupPath)
 
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true') { throw 'Run this install/uninstall test on the disposable Windows runner' }
@@ -547,3 +547,37 @@ if ((Get-Content -LiteralPath $dataRootSibling -Raw).Trim() -ne 'Unrelated file'
 }
 Write-Output 'Verified x64 setup, shortcut choices and launches, upgrade location, uninstall, settings preservation and explicit app data removal'
 if ($setupProbeFailure) { throw "Interactive setup verification failed: $($setupProbeFailure.Exception.Message)" }
+
+if ($LegacySetupPath) {
+    $legacySetup = Get-Item -LiteralPath $LegacySetupPath
+    if ($legacySetup.Length -ne 120630602 -or (Get-FileHash -LiteralPath $legacySetup.FullName).Hash -ine
+        '78865f5a4e3a26a6abbece1dc5560e2adef964fd76873eea641c8e5415f1651b') {
+        throw 'The legacy installer does not match the original v1.3.0 release'
+    }
+    if ((Test-Path -LiteralPath $uninstallRegistry) -or (Test-Path -LiteralPath $launcher) -or
+        (Test-Path -LiteralPath $data)) {
+        throw 'The renumbering migration fixture requires an uninstalled app with no data'
+    }
+
+    $quiet = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/LANG=en', '/MERGETASKS=!startmenu,!desktop')
+    Invoke-Setup $legacySetup.FullName ($quiet + ('/DIR="' + $target + '"'))
+    $before = Get-ItemProperty -LiteralPath $uninstallRegistry
+    if ($before.DisplayVersion -ne '1.3.0' -or $before.'Inno Setup: App Path' -ine $target) {
+        throw 'The migration fixture did not install v1.3.0 into the expected folder'
+    }
+
+    $savedPreferences = '{"language":"ja","migrationFixture":"keep"}'
+    Set-Content -LiteralPath $pref -Value $savedPreferences -Encoding utf8NoBOM -NoNewline
+    # Let the new setup find the previous install itself, just as in a manual update.
+    Invoke-Setup $setup $quiet
+    $after = Get-ItemProperty -LiteralPath $uninstallRegistry
+    $expected = @($setupVersion.FileMajorPart, $setupVersion.FileMinorPart, $setupVersion.FileBuildPart) -join '.'
+    $checkVersion = 'import sys; sys.path.insert(0, sys.argv[1]); from fisher.project import VERSION; print(VERSION)'
+    $actual = & $installedPython -I -B -c $checkVersion (Join-Path $target 'app')
+    if ($LASTEXITCODE -ne 0 -or $after.DisplayVersion -ne $expected -or $actual -cne $expected -or
+        $after.'Inno Setup: App Path' -ine $target -or (Get-Content -LiteralPath $pref -Raw) -cne $savedPreferences) {
+        throw "Migration from v1.3.0 did not preserve the installation and settings or install v$expected"
+    }
+    Test-ShortcutLaunch $appLink 'tt tool · モバイル活動アシスタント'
+    Write-Output "Verified migration from v1.3.0 to v$expected in the existing folder with the saved settings"
+}

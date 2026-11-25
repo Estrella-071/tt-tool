@@ -1,22 +1,23 @@
 # Windows x64 installer
 
-Download [tt-tool-1.3.0-windows-x64-setup.exe](https://github.com/Estrella-071/tt-tool/releases/download/v1.3.0/tt-tool-1.3.0-windows-x64-setup.exe) for Windows 10 22H2 or Windows 11 on x64. The installer includes Python, Qt and the local image recognition dependencies. Phone connectivity also requires [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) and [FFmpeg](https://ffmpeg.org/download.html#build-windows).
+Download [tt-tool-1.0.5-windows-x64-setup.exe](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.5/tt-tool-1.0.5-windows-x64-setup.exe) for Windows 10 22H2 or Windows 11 on x64. The installer includes Python, Qt and the local image recognition dependencies. Phone connectivity also requires [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) and [FFmpeg](https://ffmpeg.org/download.html#build-windows).
 
 ## Install and open tt tool
 
 1. Start Setup and select English, 繁體中文, 日本語 or 한국어. The app uses this language on its first launch.
-2. The installer includes the full GPL license in the installation folder. Current source builds also provide **Maintenance → View license**.
-3. On a first install you can change the folder. By default, Setup installs for the current user under `%LOCALAPPDATA%\Programs\tt tool`.
-4. Choose which shortcuts to create. The Start menu shortcut is selected by default. The desktop shortcut is off by default.
-5. On the final screen, select the launch option if you want to open tt tool when Setup finishes. You can also use a shortcut later. An installation folder shortcut named **tt tool** is available even when both external shortcuts are off.
+2. On a first install you can change the folder. By default, Setup installs for the current user under `%LOCALAPPDATA%\Programs\tt tool`.
+3. Choose which shortcuts to create. The Start menu shortcut is selected by default. The desktop shortcut is off by default.
+4. On the final screen, select the launch option if you want to open tt tool when Setup finishes. You can also use a shortcut later. An installation folder shortcut named **tt tool** is available even when both external shortcuts are off.
 
-tt tool looks for `adb.exe` and `ffmpeg.exe` on your user `Path`. In the current source build, open **Connection tools** from the device menu to choose either executable directly and select **Check and retry**. The v1.3.0 installer provides the older **ADB tool location…** command. Use the app's **USB connection guide** or the [manufacturer reference](USB-DEBUGGING.md) to prepare the phone. The phone's Android build must support `screenrecord --time-limit 0`.
+The installer includes the full GPL license in the installation folder. You can also read it from **Maintenance → View license**.
+
+tt tool looks for `adb.exe` and `ffmpeg.exe` on your user `Path`. Open **Connection tools** from the device menu to choose either executable directly, then select **Check and retry**. Use the app's **USB connection guide** or the [manufacturer reference](USB-DEBUGGING.md) to prepare the phone. The phone's Android build must support `screenrecord --time-limit 0`.
 
 ## Update tt tool
 
-**From v1.2.0 or earlier**, download v1.3.0, close tt tool and run Setup in the existing installation folder. This enables in-app installation for future updates.
+**Upgrading from the old version numbers.** If tt tool shows v1.1.0, v1.2.0, or v1.3.0, close it and run the v1.0.5 installer in the existing installation folder. This one-time manual update preserves your settings and enables in-app updates from the new version series. The historical releases v1.0.2 through v1.0.4 still contain their original installers and checksums.
 
-For an installed copy of v1.3.0 or newer, choose **Maintenance → Check for updates**. The app checks the latest stable release on GitHub when you ask. If a verified installer is available, **Download and install** starts a download you can cancel. After comparing the SHA-256 hash with the release asset's digest, the app asks for permission to stop the current activity, close the window and install the update in place. Setup shows progress and the updater reopens tt tool after installation.
+For an installed copy of v1.0.5 or newer, choose **Maintenance → Check for updates**. The app checks the latest stable release on GitHub when you ask. If a verified installer is available, **Download and install** starts a download you can cancel. After comparing the SHA-256 hash with the release asset's digest, the app asks for permission to stop the current activity, close the window and install the update in place. Setup shows progress and the updater reopens tt tool after installation.
 
 The updater cleans up its temporary installer after a completed or failed update or a cancellation. Choose **Open releases** if an in-app update is unavailable, or if you run from source. From the release page, you can download the installer and apply it manually. Updates keep your settings, interface language, calibration and local logs.
 
@@ -30,10 +31,10 @@ Settings, calibration and local diagnostic logs remain in `%LOCALAPPDATA%\tt-too
 
 ## Verify a download
 
-Setup identifies **71** as the publisher. The installer has no Authenticode signature, so Windows may display **Unknown publisher**. For a manual download, compare its SHA-256 hash with the [checksum manifest in the same GitHub release](https://github.com/Estrella-071/tt-tool/releases/download/v1.3.0/SHA256SUMS.txt).
+Setup identifies **71** as the publisher. The installer has no Authenticode signature, so Windows may display **Unknown publisher**. For a manual download, compare its SHA-256 hash with the [checksum manifest in the same GitHub release](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.5/SHA256SUMS.txt).
 
 ```powershell
-Get-FileHash .\tt-tool-1.3.0-windows-x64-setup.exe -Algorithm SHA256
+Get-FileHash .\tt-tool-1.0.5-windows-x64-setup.exe -Algorithm SHA256
 ```
 
 ## Build and verify an installer

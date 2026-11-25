@@ -4,14 +4,14 @@
 
 tt tool은 Android용 Clash of Critters의 낚시와 유적 탐험을 Windows에서 조작하는 도구입니다. USB로 연결한 휴대전화 화면을 미리 보고, PC에서 화면을 인식합니다. 활동을 선택하고 시작을 누르면 휴대전화에 입력을 보냅니다.
 
-**[Windows x64 설치 프로그램 다운로드](https://github.com/Estrella-071/tt-tool/releases/download/v1.3.0/tt-tool-1.3.0-windows-x64-setup.exe)** · [v1.3.0 릴리스 노트 및 체크섬](https://github.com/Estrella-071/tt-tool/releases/tag/v1.3.0)
+**[Windows x64 설치 프로그램 다운로드](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.5/tt-tool-1.0.5-windows-x64-setup.exe)** · [v1.0.5 릴리스 노트 및 체크섬](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.5)
 
 ![한국어 기본 창에 휴대전화 연결 영역, 미리보기, 활동 전환, 언어 선택 버튼이 표시된 모습](docs/images/tt-tool/ko-main.png)
 
 ## 설치 및 시작
 
 1. Windows 10 22H2 또는 Windows 11(x64)에서 설치 프로그램을 실행하고 언어를 선택합니다. 설치 프로그램에 Python과 Qt가 포함되어 있습니다. 처음 설치할 때는 설치 위치를 바꿀 수 있습니다. 시작 메뉴 바로 가기는 기본으로 선택되며 바탕 화면 바로 가기는 필요할 때 선택할 수 있습니다. 설치를 마치면 **tt tool**을 바로 실행할지 선택할 수 있습니다. 앱은 처음 실행할 때 설치 중 선택한 언어로 표시됩니다.
-2. [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)와 [FFmpeg](https://ffmpeg.org/download.html#build-windows)를 설치합니다. 각 실행 파일이 있는 폴더를 사용자 `Path`에 추가하고, 새 PowerShell 창에서 `adb version`과 `ffmpeg -version`이 실행되는지 확인합니다. ADB를 찾을 수 없으면 기기 메뉴의 **ADB 도구 위치…**에서 기존 adb.exe를 지정할 수 있습니다. `Path`를 변경한 뒤에는 tt tool을 다시 엽니다.
+2. [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)와 [FFmpeg](https://ffmpeg.org/download.html#build-windows)를 설치합니다. 실행 파일을 찾을 수 없으면 기기 메뉴의 **연결 도구**에서 파일을 지정한 뒤 **확인하고 다시 시도**를 선택하세요.
 3. 앱의 **USB 연결 안내**나 [제조사별 안내](docs/USB-DEBUGGING.md)에서 USB 디버깅을 켜고 파일 전송을 지원하는 USB 케이블로 PC에 연결합니다. 휴대전화에 나타나는 디버깅 요청을 승인합니다. 승인된 휴대전화가 한 대이면 자동으로 연결됩니다. 여러 대라면 기기를 선택한 다음 **연결**을 누릅니다.
 4. 휴대전화를 세로로 두고 게임을 전면에 표시한 다음, 낚시 또는 유적 탐험 화면을 엽니다. 미리보기에서 전체 화면이 보이는지 확인하고 **낚시 시작** 또는 **탐험 시작**을 누릅니다. tt tool 창에 포커스가 있을 때 스페이스바로 시작, 일시 정지, 재개를 할 수 있고, Esc로 세션을 종료할 수 있습니다. 언어는 오른쪽 아래 버튼에서 변경합니다.
 
@@ -29,9 +29,9 @@ tt tool은 Android용 Clash of Critters의 낚시와 유적 탐험을 Windows에
 
 ## 업데이트 및 관리
 
-창 하단의 **관리 → 업데이트 확인**을 선택합니다. 설치 프로그램으로 설치한 v1.3.0 이상에서는 앱 안에서 새 안정 버전을 내려받을 수 있습니다. 설치 파일의 SHA-256을 검증한 뒤, 현재 활동을 끝내고 앱을 닫아 기존 위치에 업데이트할지 묻습니다. 업데이트 확인과 다운로드는 직접 시작합니다.
+창 하단의 **관리 → 업데이트 확인**을 선택합니다. v1.0.5 이상 설치 버전에서는 앱 안에서 새 버전을 다운로드해 검증하고, 확인 후 기존 위치에 업데이트할 수 있습니다.
 
-v1.2.0에서 업데이트하려면 v1.3.0 설치 프로그램을 내려받고, tt tool을 닫은 뒤 실행하세요. 앱 안에서 업데이트할 수 없으면 **릴리스 페이지 열기**를 선택해 직접 내려받을 수 있습니다.
+앱에 v1.1.0, v1.2.0, v1.3.0 중 하나가 표시되면 tt tool을 닫고 v1.0.5 설치 프로그램을 한 번 실행하세요. 설정은 유지됩니다. 직접 내려받으려면 **릴리스 페이지 열기**를 선택하세요.
 
 **관리** 메뉴에서 앱 또는 데이터 폴더를 열고 앱 제거를 시작할 수 있습니다. 제거 확인 화면에는 설치 위치가 표시됩니다. 업데이트와 기본 제거 과정에서는 데이터를 유지합니다. 데이터까지 지우려면 **tt tool 로컬 데이터도 삭제**를 선택하세요. 설치 프로그램에 디지털 서명이 없어 Windows에 ‘알 수 없는 게시자’로 표시될 수 있습니다. [Windows 설치 안내(영어)](docs/INSTALLER.md)
 

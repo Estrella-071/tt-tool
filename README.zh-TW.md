@@ -4,14 +4,14 @@
 
 tt tool 是 Windows 上的 Android 手機活動助手，支援《塔塔冒險隊》（Clash of Critters）的釣魚與遺跡探險。透過 USB 連線預覽手機畫面，辨識在電腦上執行。選擇活動並按下開始後才會操作手機。
 
-**[下載 Windows x64 安裝程式](https://github.com/Estrella-071/tt-tool/releases/download/v1.3.0/tt-tool-1.3.0-windows-x64-setup.exe)** · [v1.3.0 版本資訊與檔案校驗](https://github.com/Estrella-071/tt-tool/releases/tag/v1.3.0)
+**[下載 Windows x64 安裝程式](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.5/tt-tool-1.0.5-windows-x64-setup.exe)** · [v1.0.5 版本資訊與檔案校驗](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.5)
 
 ![繁體中文主視窗，顯示連線區、手機預覽、釣魚與遺跡探險切換，以及右下角的語言選單](docs/images/tt-tool/zh_TW-main.png)
 
 ## 安裝與開始使用
 
 1. 在 Windows 10 22H2 或 Windows 11（x64）開啟安裝程式並選擇語言。安裝程式已包含 Python 與 Qt。首次安裝可調整安裝資料夾，開始選單捷徑預設勾選，桌面捷徑可自行選用。完成安裝時可選擇是否開啟 **tt tool**。工具首次開啟時會沿用安裝語言。
-2. 安裝 [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) 和 [FFmpeg](https://ffmpeg.org/download.html#build-windows)。把兩者執行檔所在的資料夾加到使用者的 `Path`，開啟新的 PowerShell 執行 `adb version` 和 `ffmpeg -version` 確認。找不到 ADB 時，可從裝置選單的 **ADB 工具位置…** 指定既有的 adb.exe。更新 `Path` 後請重開工具。
+2. 安裝 [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) 和 [FFmpeg](https://ffmpeg.org/download.html#build-windows)。若工具找不到其中一個執行檔，從裝置選單開啟 **連線工具**，指定檔案後選擇 **檢查並重試**。
 3. 從程式中的 **USB 連線教學** 或 [各品牌指南](docs/USB-DEBUGGING.md) 查詢如何開啟 USB 偵錯，以支援資料傳輸的 USB 線連接電腦，並在手機上允許偵錯。工具會自動連線至唯一已授權的手機。有多台時，選好裝置後按 **連線手機**。
 4. 將遊戲維持直向並切到前景，進入對應的釣魚或遺跡探險畫面。確認預覽完整後按 **開始釣魚** 或 **開始探險**。工具視窗中，空白鍵可開始、暫停及繼續，Esc 可結束。從右下方切換介面語言。
 
@@ -29,9 +29,9 @@ tt tool 是 Windows 上的 Android 手機活動助手，支援《塔塔冒險隊
 
 ## 更新與維護
 
-從視窗底部選擇 **工具維護 → 檢查更新**。透過安裝程式安裝的 v1.3.0 及後續版本，可在 tt tool 裡下載新的正式版。工具會校驗安裝程式的 SHA-256，經你確認後才結束目前活動、關閉程式，並更新原安裝位置。檢查與下載都由你手動發起。
+從視窗底部選擇 **工具維護 → 檢查更新**。安裝版從 v1.0.5 起可在程式內下載並校驗新版本，經你確認後更新原安裝位置。
 
-從 v1.2.0 升級時，請先下載 v1.3.0，關閉 tt tool 後手動執行安裝程式。若程式內更新無法使用，也可選擇 **開啟發布頁** 手動下載。
+如果程式顯示 v1.1.0、v1.2.0 或 v1.3.0，請關閉 tt tool，再手動執行 v1.0.5 安裝程式一次。設定會保留。需要手動下載時，可選擇 **開啟發布頁**。
 
 **工具維護** 也可開啟程式與資料資料夾，或啟動解除安裝。解除安裝前會顯示安裝位置。更新會保留資料，解除安裝也預設保留。勾選 **一併清除 tt tool 的本機資料** 才會移除。安裝程式未簽署，Windows 可能顯示「未知的發行者」。 [Windows 安裝指南（英文）](docs/INSTALLER.md)
 

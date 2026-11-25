@@ -1,16 +1,20 @@
 # Changelog
 
-User-facing changes to the Windows releases.
+User-facing changes to the Windows releases. The v1.0.2, v1.0.3, and v1.0.4 releases were previously called v1.1.0, v1.2.0, and v1.3.0. Archived installers still display their original numbers.
 
-## [v1.3.0](https://github.com/Estrella-071/tt-tool/releases/tag/v1.3.0)
+## [v1.0.5](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.5)
 
-Update tt tool directly from **Maintenance → Check for updates**. If you are on an earlier version, run this installer once to enable in-app updates. Uninstall now shows which folder will be removed and reports the result.
+Fix phone preview corruption on Windows, improve connection recovery, and simplify Setup. The main window shows the version next to tt tool.
 
-## [v1.2.0](https://github.com/Estrella-071/tt-tool/releases/tag/v1.2.0)
+## [v1.0.4](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.4)
+
+Introduced in-app downloads from **Maintenance → Check for updates**. Uninstall now shows which folder will be removed and reports the result.
+
+## [v1.0.3](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.3)
 
 Get USB setup help for your phone brand inside tt tool. When uninstalling, you can choose whether to remove your saved settings.
 
-## [v1.1.0](https://github.com/Estrella-071/tt-tool/releases/tag/v1.1.0)
+## [v1.0.2](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.2)
 
 Choose an install folder and shortcuts. The new **Maintenance** menu lets you check for updates, find your files, or uninstall.
 
