@@ -10,14 +10,15 @@ import tempfile
 
 from build_windows import fetch, unpack_runtime, unpack_wheel, validate_runtime
 from fisher.config import ROOT
+from fisher.project import VERSION
 
-VERSION = "1.0.1"
 NAME = f"tt-tool-{VERSION}-windows-x64"
 COMPONENTS = ROOT / "packaging" / "tt-tool-runtime.lock.json"
 LAUNCHER = "tt_tool_launcher.py"
 PHONE_MODULES = (
     "__init__", "adb", "config", "contact", "controller", "device_profiles",
-    "emulators", "i18n", "phase", "phone_runtime", "phone_vision", "ruins",
+    "emulators", "i18n", "maintenance", "phase", "phone_runtime", "phone_vision",
+    "project", "ruins",
     "ruins_battle_result", "ruins_chest", "ruins_diagnostics", "ruins_geometry",
     "ruins_odds", "ruins_runtime", "speed", "templates", "vision", "visual_settings",
 )

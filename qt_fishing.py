@@ -17,6 +17,7 @@ from fisher.config import DATA_ROOT
 from fisher.phone_runtime import PhoneRunner
 from fisher.device_profiles import DeviceProfileStore
 from fisher.i18n import LANGUAGE_OPTIONS, translate
+from fisher.maintenance import Maintenance
 from fisher.ruins import RuinsController
 from fisher.ruins_runtime import RuinsRunner
 from fisher.visual_settings import VisualSettingsDialog
@@ -66,6 +67,10 @@ QScrollBar::handle:vertical:disabled {background:transparent;}
 QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {height:0;}
 QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical {background:transparent; border:0;}
 QToolTip {background:#302b40; color:white; border:0; border-radius:10px; padding:8px;}
+QMenu {background:#f5f3f7; color:#302b40; border:1px solid #d8d1e1; border-radius:16px; padding:8px;}
+QMenu::item {padding:9px 28px 9px 18px; border-radius:10px;}
+QMenu::item:selected {background:#e3dceb;}
+QMenu::indicator:checked {background:#6b5d91; border-radius:5px; width:10px; height:10px;}
 '''
 
 class AnimatedButton(QtWidgets.QPushButton):
@@ -200,7 +205,7 @@ class ResizeHandle(QtWidgets.QWidget):
         p=QtGui.QPainter(self);p.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing);p.setPen(QtGui.QPen(QtGui.QColor('#a69bb7'),3,QtCore.Qt.PenStyle.SolidLine,QtCore.Qt.PenCapStyle.RoundCap));p.drawLine(10,20,20,10);p.drawLine(16,21,21,16)
 
 class FishingWindow(QtWidgets.QMainWindow):
-    def __init__(self, mode='fishing', start_after_connect=False):
+    def __init__(self, mode='fishing', start_after_connect=False, *, install_root=None):
         super().__init__(); self.setWindowTitle('tt tool · 手機活動助手');self.setMinimumSize(680,600);self.setMaximumSize(3840,2160);screen=QtWidgets.QApplication.primaryScreen().availableGeometry();self.resize(min(1180,screen.width()-40),min(900,screen.height()-40))
         self.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Window);self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground);self.drag_pos=None;self.last_headline='';self.window_expanded=False;self.restore_rect=None
         self.mode=mode if mode in ('fishing','ruins') else 'fishing';self.runner=None;self.devices=[];self.q=queue.SimpleQueue();self.busy=False;self.adb_path='adb';self.frame=None;self.zoom_dialog=None;self.zoom_preview=None;self.auto_connect=True;self.pending_start=start_after_connect
@@ -213,6 +218,7 @@ class FishingWindow(QtWidgets.QMainWindow):
             if language in dict(LANGUAGE_OPTIONS):self.language=language
         except (OSError,ValueError,TypeError,AttributeError):pass
         self.draft_settings=deepcopy(self.saved);self.pending_profile_reset=set()
+        self.maintenance = Maintenance(self, install_root)
         self.build();self.timer=QtCore.QTimer(self);self.timer.setTimerType(QtCore.Qt.TimerType.PreciseTimer);self.timer.timeout.connect(self.poll);self.timer.start(12);self.discovery_timer=QtCore.QTimer(self);self.discovery_timer.timeout.connect(self.scan_if_needed);self.discovery_timer.start(5000);QtCore.QTimer.singleShot(150,self.refresh)
     def button(self,text,fn,kind=None):
         b=AnimatedButton(self.tr(text));b.setProperty('i18n_source',text);b.clicked.connect(fn)
@@ -270,6 +276,8 @@ class FishingWindow(QtWidgets.QMainWindow):
         self.compact_controls=QtWidgets.QFrame();compact_row=QtWidgets.QHBoxLayout(self.compact_controls);compact_row.setContentsMargins(0,0,0,0);compact_row.setSpacing(10);self.compact_start=self.button('開始釣魚',self.toggle_fishing,'primary');self.compact_pause=self.button('結束',self.end,'danger');compact_row.addWidget(self.compact_start,2);compact_row.addWidget(self.compact_pause,1);page.addWidget(self.compact_controls);self.compact_controls.hide()
         foot=QtWidgets.QHBoxLayout();self.metrics=self.label('等待連線','muted');foot.addWidget(self.metrics,1)
         self.adb_button=self.button('選擇 adb.exe',self.browse);foot.addWidget(self.adb_button)
+        self.maintenance_button = self.button('工具維護', self.show_maintenance_menu)
+        foot.addWidget(self.maintenance_button)
         self.language_button=self.button(dict(LANGUAGE_OPTIONS)[self.language],self.show_language_menu);self.language_button.setToolTip(self.tr('語言'));foot.addWidget(self.language_button)
         foot.addWidget(ResizeHandle());page.addLayout(foot)
         QtGui.QShortcut(QtGui.QKeySequence('Escape'),self,activated=self.end)
@@ -278,13 +286,20 @@ class FishingWindow(QtWidgets.QMainWindow):
         QtWidgets.QApplication.instance().focusChanged.connect(self.update_space_shortcut)
         self.set_connected(False);self.apply_mode();self.retranslate_ui()
     def show_language_menu(self):
-        menu=QtWidgets.QMenu(self);menu.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground)
-        menu.setStyleSheet('QMenu {background:#f5f3f7;color:#302b40;border:1px solid #d8d1e1;border-radius:16px;padding:8px;} QMenu::item {padding:9px 28px 9px 18px;border-radius:10px;} QMenu::item:selected {background:#e3dceb;} QMenu::indicator:checked {background:#6b5d91;border-radius:5px;width:10px;height:10px;}')
+        menu = QtWidgets.QMenu(self.language_button)
         for code,name in LANGUAGE_OPTIONS:
             action=menu.addAction(name);action.setCheckable(True);action.setChecked(code==self.language)
             action.triggered.connect(lambda checked=False,value=code:self.set_language(value))
-        self._language_menu=menu;menu.adjustSize()
-        menu.popup(self.language_button.mapToGlobal(QtCore.QPoint(0,-menu.sizeHint().height()-4)))
+        self.popup_footer_menu(menu, self.language_button)
+    def show_maintenance_menu(self):
+        menu = self.maintenance.menu(self.maintenance_button)
+        self.popup_footer_menu(menu, self.maintenance_button)
+    def popup_footer_menu(self, menu, button):
+        menu.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground)
+        menu.aboutToHide.connect(menu.deleteLater)
+        menu.ensurePolished()
+        size = menu.sizeHint()
+        menu.popup(button.mapToGlobal(QtCore.QPoint(button.width() - size.width(), -size.height() - 5)))
     def set_language(self,language,persist=True):
         if language not in dict(LANGUAGE_OPTIONS):return
         self.language=language;self.retranslate_ui()
@@ -300,6 +315,7 @@ class FishingWindow(QtWidgets.QMainWindow):
             source=widget.property('i18n_source')
             if isinstance(source,str):widget.setText(self.tr(source))
         self.language_button.setText(dict(LANGUAGE_OPTIONS)[self.language]);self.language_button.setToolTip(self.tr('語言'))
+        self.maintenance_button.setToolTip(f"{self.tr('工具維護')} · v{self.maintenance.version}")
         self.advanced_toggle.setToolTip(self.tr('調整畫面、操作位置與活動設定'))
         self.preview_label.setToolTip(self.tr('點擊放大即時預覽'));self.preview_label.setAccessibleName(self.tr('放大手機預覽'))
         if self.preview_label.image.isNull():self.preview_label.setText(self.tr(self.preview_message))
@@ -343,9 +359,10 @@ class FishingWindow(QtWidgets.QMainWindow):
         for button in (self.start_btn,self.compact_start):button.setEnabled(connected);self.set_text(button,text)
         for button in (self.pause_btn,self.compact_pause):button.setEnabled(bool(active or session))
     def update_space_shortcut(self,old,new):
+        footer_buttons = (self.adb_button, self.maintenance_button, self.language_button)
         widget=new
         while widget is not None and widget is not self:
-            if isinstance(widget,(QtWidgets.QLineEdit,QtWidgets.QAbstractSpinBox,QtWidgets.QComboBox,AnimatedSwitch,PhonePreview)):
+            if isinstance(widget,(QtWidgets.QLineEdit,QtWidgets.QAbstractSpinBox,QtWidgets.QComboBox,AnimatedSwitch,PhonePreview)) or widget in footer_buttons:
                 self.space_shortcut.setEnabled(False);return
             widget=widget.parentWidget()
         self.space_shortcut.setEnabled(True)
@@ -543,12 +560,12 @@ class FishingWindow(QtWidgets.QMainWindow):
         if self.runner:self.runner.close()
         super().closeEvent(event)
 
-def main(icon_path=None):
+def main(icon_path=None, *, install_root=None):
     app = QtWidgets.QApplication([arg for arg in sys.argv if arg not in ('--ruins', '--start')])
     app.setStyleSheet(STYLE)
     if icon_path is not None:
         app.setWindowIcon(QtGui.QIcon(str(icon_path)))
-    window = FishingWindow('ruins' if '--ruins' in sys.argv else 'fishing', '--start' in sys.argv)
+    window = FishingWindow('ruins' if '--ruins' in sys.argv else 'fishing', '--start' in sys.argv, install_root=install_root)
     window.show()
     sys.exit(app.exec())
 if __name__=='__main__':main()

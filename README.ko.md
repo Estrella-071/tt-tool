@@ -1,19 +1,21 @@
 # tt tool
 
-[繁體中文](README.md) · [English](README.en.md) · [日本語](README.ja.md)
+[English](README.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md)
 
 tt tool은 Android용 Clash of Critters의 낚시와 유적 탐험을 Windows에서 조작하는 도구입니다. USB로 연결한 휴대전화 화면을 미리 보고, PC에서 화면을 인식합니다. 활동을 선택하고 시작을 누르면 휴대전화에 입력을 보냅니다.
 
-**[Windows x64 설치 프로그램 다운로드](https://github.com/Estrella-071/tt-tool/releases/download/v1.0.1/tt-tool-1.0.1-windows-x64-setup.exe)** · [v1.0.1 릴리스 노트 및 체크섬](https://github.com/Estrella-071/tt-tool/releases/tag/v1.0.1)
+**[Windows x64 설치 프로그램 다운로드](https://github.com/Estrella-071/tt-tool/releases/download/v1.1.0/tt-tool-1.1.0-windows-x64-setup.exe)** · [v1.1.0 릴리스 노트 및 체크섬](https://github.com/Estrella-071/tt-tool/releases/tag/v1.1.0)
 
 ![한국어 기본 창에 휴대전화 연결 영역, 미리보기, 활동 전환, 언어 선택 버튼이 표시된 모습](docs/images/tt-tool/ko-main.png)
 
 ## 설치 및 시작
 
-1. Windows 10 22H2 또는 Windows 11(x64)에서 설치 프로그램을 실행하고 먼저 언어를 선택합니다. 설치 프로그램에 Python과 Qt가 포함되어 있습니다. 시작 메뉴에서 **tt tool**을 열면 처음에는 설치 중 선택한 언어로 표시됩니다.
+1. Windows 10 22H2 또는 Windows 11(x64)에서 설치 프로그램을 실행하고 언어를 선택합니다. 설치 프로그램에 Python과 Qt가 포함되어 있습니다. 처음 설치할 때는 설치 위치를 바꿀 수 있습니다. 시작 메뉴 바로 가기는 기본으로 선택되며 바탕 화면 바로 가기는 필요할 때 선택할 수 있습니다. 설치를 마치면 **tt tool**을 바로 실행할지 선택할 수 있습니다. 앱은 처음 실행할 때 설치 중 선택한 언어로 표시됩니다.
 2. [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)와 [FFmpeg](https://ffmpeg.org/download.html#build-windows)를 설치합니다. 각 실행 파일이 있는 폴더를 사용자 `Path`에 추가하고, 새 PowerShell 창에서 `adb version`과 `ffmpeg -version`이 실행되는지 확인합니다. ADB 경로는 tt tool 창 하단의 **adb.exe 선택**으로 지정할 수도 있습니다. `Path`를 변경한 뒤에는 tt tool을 다시 엽니다.
 3. Android에서 USB 디버깅을 켜고 파일 전송을 지원하는 USB 케이블로 PC에 연결합니다. 휴대전화에 나타나는 디버깅 요청을 승인합니다. 승인된 휴대전화가 한 대이면 자동으로 연결됩니다. 여러 대라면 기기를 선택한 다음 **연결**을 누릅니다.
 4. 휴대전화를 세로로 두고 게임을 전면에 표시한 다음, 낚시 또는 유적 탐험 화면을 엽니다. 미리보기에서 전체 화면이 보이는지 확인하고 **낚시 시작** 또는 **탐험 시작**을 누릅니다. tt tool 창에 포커스가 있을 때 스페이스바로 시작, 일시 정지, 재개를 할 수 있고, Esc로 세션을 종료할 수 있습니다. 언어는 오른쪽 아래 버튼에서 변경합니다.
+
+두 바로 가기를 모두 선택하지 않았다면 설치 폴더 안의 **tt tool** 바로 가기로 실행할 수 있습니다.
 
 ## 활동 선택 및 설정
 
@@ -25,6 +27,12 @@ tt tool은 Android용 Clash of Critters의 낚시와 유적 탐험을 Windows에
 
 *설정 화면에 예시 이미지를 사용했습니다. 인식 결과는 휴대전화, 영상 지연, 게임 화면 구성의 영향을 받습니다. 자세한 내용은 [ADB 휴대전화 가이드(번체 중국어)](docs/ADB.md)를 참고하세요.*
 
+## 업데이트 및 관리
+
+앱 창 하단의 **관리** 메뉴에서 GitHub의 최신 릴리스를 수동으로 확인하거나 앱 폴더 및 데이터 폴더를 열 수 있습니다. 업데이트가 있으면 확인 후 브라우저에서 릴리스 페이지가 열립니다. 설치 프로그램을 내려받아 실행하면 업데이트할 수 있습니다.
+
+Windows 설치 프로그램으로 설치한 경우 이 메뉴에서 제거도 시작할 수 있습니다. 업데이트하거나 제거해도 사용자 데이터는 남습니다. 자세한 내용은 [Windows 설치 안내(영어)](docs/INSTALLER.md)를 참고하세요.
+
 ## 문제 해결 및 로컬 데이터
 
 - **휴대전화가 표시되지 않는 경우**. `adb devices`에서 상태가 `device`인지 확인합니다. `unauthorized`로 표시되면 휴대전화 잠금을 해제하고 이 PC의 USB 디버깅을 허용합니다. 기종에 따라 제조사의 Windows USB 드라이버가 필요할 수 있습니다.
@@ -33,7 +41,7 @@ tt tool은 Android용 Clash of Critters의 낚시와 유적 탐험을 Windows에
 
 ## 소스에서 실행 및 개발
 
-개발 환경은 Windows와 Python 3.12를 사용합니다. 위의 방법으로 ADB와 FFmpeg를 준비한 뒤 PowerShell에서 다음 명령을 실행합니다.
+개발 환경에는 Windows, Git, Python 3.12가 필요합니다. 위의 방법으로 ADB와 FFmpeg를 준비한 뒤 PowerShell에서 다음 명령을 실행합니다.
 
 ```powershell
 git clone https://github.com/Estrella-071/tt-tool.git

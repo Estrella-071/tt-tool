@@ -24,7 +24,7 @@ def run():
         app = qt_fishing.QtWidgets.QApplication([])
         assert app.platformName() == "windows", app.platformName()
         app.setStyleSheet(qt_fishing.STYLE)
-        window = qt_fishing.FishingWindow()
+        window = qt_fishing.FishingWindow(install_root=app_directory.parent)
         window.setWindowIcon(qt_fishing.QtGui.QIcon(str(icon)))
         window.show()
         app.processEvents()
@@ -33,7 +33,7 @@ def run():
         window.close()
         print("tt tool Qt Win32 startup OK")
     else:
-        qt_fishing.main(icon_path=icon)
+        qt_fishing.main(icon_path=icon, install_root=app_directory.parent)
 
 
 if __name__ == "__main__":

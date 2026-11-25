@@ -1,4 +1,11 @@
-# 更新紀錄
+# Changelog
+
+## tt tool 1.1.0
+
+- Added a maintenance menu to check GitHub for updates, open the application and data folders, and start the uninstaller on installed copies. Update checks run on request and require confirmation before opening a release page.
+- Windows Setup lets you pick the installation folder on first install and choose Start menu and desktop shortcuts. The Start menu shortcut is selected by default. You can also choose to open the app when Setup finishes.
+- The app retains your language, settings, calibration and local logs across updates and after uninstalling.
+- Made English the main project README and kept the Traditional Chinese, Japanese and Korean guides.
 
 ## tt tool 1.0.1
 

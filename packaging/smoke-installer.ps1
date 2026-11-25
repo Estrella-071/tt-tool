@@ -5,9 +5,11 @@ param([Parameter(Mandatory)] [string] $SetupPath)
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true') { throw 'Run this install/uninstall test on the disposable Windows runner' }
 
-function Invoke-Setup([string] $Application, [string[]] $Flags) {
+function Invoke-Setup([string] $Application, [string[]] $Flags, [int] $ExpectedExit = 0) {
     $process = Start-Process -FilePath $Application -ArgumentList $Flags -WindowStyle Hidden -Wait -PassThru
-    if ($process.ExitCode -ne 0) { throw "$Application exited with $($process.ExitCode)" }
+    if ($process.ExitCode -ne $ExpectedExit) {
+        throw "$Application exited with $($process.ExitCode); expected $ExpectedExit"
+    }
 }
 
 $setup = (Get-Item -LiteralPath $SetupPath).FullName
@@ -19,26 +21,49 @@ if ([BitConverter]::ToUInt32($bytes, $peOffset) -ne 0x4550 -or [BitConverter]::T
 
 $target = Join-Path $env:RUNNER_TEMP 'tt tool 安裝測試'
 $data = Join-Path $env:LOCALAPPDATA 'tt-tool\data'
-$shortcutPath = Join-Path ([Environment]::GetFolderPath('Programs')) 'tt tool\tt tool.lnk'
+$programs = [Environment]::GetFolderPath('Programs')
+$shortcutPath = Join-Path $programs 'tt tool\tt tool.lnk'
+$unmanagedLink = Join-Path $programs 'tt tool.lnk'
+$desktopPath = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'tt tool.lnk'
+$appLink = Join-Path $target 'tt tool.lnk'
 $log = Join-Path $env:RUNNER_TEMP 'tt-tool-install.log'
-if ((Test-Path -LiteralPath $target) -or (Test-Path -LiteralPath $shortcutPath) -or (Test-Path -LiteralPath $data)) {
-    throw 'Test requires a fresh installer environment'
+foreach ($path in @($target, $data, $shortcutPath, $desktopPath, $unmanagedLink)) {
+    if (Test-Path -LiteralPath $path) { throw "Test requires a fresh installer environment: $path" }
 }
-$flags = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', ('/DIR="' + $target + '"'), ('/LOG="' + $log + '"'))
+$flags = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', ('/LOG="' + $log + '"'))
+$flags += ('/DIR="' + $target + '"')
 Invoke-Setup $setup ($flags + '/LANG=ko')
-if (!(Test-Path -LiteralPath $shortcutPath -PathType Leaf)) { throw 'Start Menu shortcut missing' }
+if (!(Test-Path -LiteralPath $shortcutPath -PathType Leaf) -or
+    !(Test-Path -LiteralPath $appLink -PathType Leaf) -or (Test-Path -LiteralPath $desktopPath)) {
+    throw 'Default install must add Start Menu and in-folder shortcuts only'
+}
 $pythonw = Join-Path $target 'runtime\pythonw.exe'
 $launcher = Join-Path $target 'app\tt_tool_launcher.py'
-if (!(Test-Path -LiteralPath (Join-Path $target 'tt-tool.ico'))) { throw 'Installed icon missing' }
+foreach ($file in @('tt-tool.ico', 'uninstall-mark.png')) {
+    if (!(Test-Path -LiteralPath (Join-Path $target $file))) { throw "Installed image missing: $file" }
+}
 
 $installedPython = Join-Path $target 'runtime\python.exe'
 & $installedPython -I -B $launcher --check
 if ($LASTEXITCODE -ne 0) { throw 'Installed Qt smoke check failed' }
+$uninstaller = Join-Path $target 'unins000.exe'
+$checkUninstaller = @'
+import sys
+from pathlib import Path
+expected = Path(sys.argv[1]).resolve()
+sys.path.insert(0, str(expected.parent / "app"))
+from fisher.maintenance import uninstall_program
+actual = uninstall_program(expected.parent)
+if actual is None or not actual.samefile(expected):
+    raise SystemExit("Registry lookup did not resolve the installed tt tool uninstaller")
+'@
+& $installedPython -I -B -c $checkUninstaller $uninstaller
+if ($LASTEXITCODE -ne 0) { throw 'Installed app could not resolve its registered uninstaller' }
 
-function Test-ShortcutLaunch([string] $ExpectedTitle) {
+function Test-ShortcutLaunch([string] $LinkPath, [string] $ExpectedTitle) {
     # ShellExecute follows the real Windows shortcut, including its Unicode path.
     # The legacy WScript.Shell automation accessor can mangle non-ASCII paths.
-    $link = [System.Diagnostics.ProcessStartInfo]::new($shortcutPath)
+    $link = [System.Diagnostics.ProcessStartInfo]::new($LinkPath)
     $link.UseShellExecute = $true
     $started = [System.Diagnostics.Process]::Start($link)
     $app = $null
@@ -70,12 +95,35 @@ function Test-ShortcutLaunch([string] $ExpectedTitle) {
 
 $pref = Join-Path $data 'tt_tool_ui.json'
 if ((Get-Content -LiteralPath $pref -Raw | ConvertFrom-Json).language -ne 'ko') { throw 'Initial setup language was not saved' }
-Test-ShortcutLaunch 'tt tool · 모바일 활동 도우미'
+Test-ShortcutLaunch $shortcutPath 'tt tool · 모바일 활동 도우미'
 '{"language":"ja"}' | Set-Content -LiteralPath $pref -Encoding utf8NoBOM
-Invoke-Setup $setup ($flags + '/LANG=zh_TW')
+'Unmanaged Start Menu entry' | Set-Content -LiteralPath $unmanagedLink -Encoding utf8NoBOM
+Invoke-Setup $setup ($flags + '/LANG=zh_TW' + '/TASKS=startmenu,desktop')
+if (!(Test-Path -LiteralPath $desktopPath -PathType Leaf)) { throw 'Selected desktop shortcut missing' }
 if ((Get-Content -LiteralPath $pref -Raw | ConvertFrom-Json).language -ne 'ja') { throw 'Upgrade changed settings' }
-Test-ShortcutLaunch 'tt tool · モバイル活動アシスタント'
-Invoke-Setup (Join-Path $target 'unins000.exe') @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')
-if ((Test-Path -LiteralPath $shortcutPath) -or (Test-Path -LiteralPath $launcher)) { throw 'Uninstall left the shortcut or app' }
+Test-ShortcutLaunch $desktopPath 'tt tool · モバイル活動アシスタント'
+
+$otherTarget = Join-Path $env:RUNNER_TEMP 'tt tool invalid upgrade path'
+$movedFlags = $flags[0..($flags.Count - 2)] + ('/DIR="' + $otherTarget + '"')
+Invoke-Setup $setup ($movedFlags + '/LANG=en') 7
+if (Test-Path -LiteralPath (Join-Path $otherTarget 'app\tt_tool_launcher.py')) {
+    throw 'Upgrade installed into a different folder'
+}
+
+Invoke-Setup $setup ($flags + '/LANG=en' + '/MERGETASKS=!startmenu,!desktop')
+if ((Test-Path -LiteralPath $shortcutPath) -or (Test-Path -LiteralPath $desktopPath)) {
+    throw 'Upgrade with both shortcuts cleared did not remove the managed shortcuts'
+}
+if ((Get-Content -LiteralPath $unmanagedLink -Raw).Trim() -ne 'Unmanaged Start Menu entry') {
+    throw 'Upgrade removed or modified an unmanaged Start Menu entry'
+}
+Test-ShortcutLaunch $appLink 'tt tool · モバイル活動アシスタント'
+Invoke-Setup $uninstaller @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')
+foreach ($path in @($shortcutPath, $desktopPath, $appLink, $launcher, (Join-Path $target 'uninstall-mark.png'))) {
+    if (Test-Path -LiteralPath $path) { throw "Uninstall left an installed file or shortcut: $path" }
+}
+if ((Get-Content -LiteralPath $unmanagedLink -Raw).Trim() -ne 'Unmanaged Start Menu entry') {
+    throw 'Uninstall removed or modified an unmanaged Start Menu entry'
+}
 if ((Get-Content -LiteralPath $pref -Raw | ConvertFrom-Json).language -ne 'ja') { throw 'Uninstall removed settings' }
-Write-Output 'Verified x64 setup, Start Menu launch, upgrade, uninstall and settings preservation'
+Write-Output 'Verified x64 setup, shortcut choices and launches, upgrade location, uninstall, and settings preservation'
