@@ -27,12 +27,8 @@ SolidCompression=yes
 SetupIconFile={#PayloadDir}\tt-tool.ico
 UninstallDisplayIcon={app}\tt-tool.ico
 LicenseFile={#PayloadDir}\LICENSE
-WizardStyle=modern light windows11 hidebevels
+WizardStyle=modern light hidebevels
 WizardBackColor=#e9e6ee
-WizardImageBackColor=#e9e6ee
-WizardSmallImageBackColor=#e9e6ee
-WizardImageFile=installer-art\cover.png
-WizardSmallImageFile=installer-art\mark.png
 
 [Languages]
 Name: "zh_TW"; MessagesFile: "compiler:Languages\ChineseTraditional.isl"
@@ -46,7 +42,6 @@ Name: "desktop"; Description: "{cm:DesktopShortcut}"; Flags: unchecked
 
 [Files]
 Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "installer-art\mark.png"; DestDir: "{app}"; DestName: "uninstall-mark.png"; Flags: ignoreversion
 
 [InstallDelete]
 Type: files; Name: "{group}\tt tool.lnk"; Check: RemoveStartMenuShortcut
@@ -70,6 +65,8 @@ const
 
 var
   PlaceStartMenuLink, PlaceDesktopLink: Boolean;
+
+#include "tt-tool-ui.iss"
 
 function PreviousInstallFolder: String;
 begin
@@ -172,27 +169,15 @@ begin
     SetPreviousData(PreviousDataKey, DesktopHash, GetSHA256OfFile(DesktopLink));
 end;
 
-procedure InitializeUninstallProgressForm;
-var
-  MarkFile: String;
-begin
-  MarkFile := ExpandConstant('{app}\uninstall-mark.png');
-  if FileExists(MarkFile) then begin
-    try
-      UninstallProgressForm.WizardSmallBitmapImage.PngImage.LoadFromFile(MarkFile);
-      UninstallProgressForm.WizardSmallBitmapImage.Stretch := True;
-    except
-      Log('Could not load the tt tool uninstall image.');
-    end;
-  end;
-end;
-
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   DataDir, Preferences, Language: String;
 begin
   if CurStep <> ssPostInstall then
     Exit;
+  if not RegWriteStringValue(HKCU, UninstallKey, 'UninstallString',
+    '"' + ExpandConstant('{uninstallexe}') + '" /SILENT /NORESTART /TTTOOLPROMPT') then
+    Log('Could not register the tt tool uninstall confirmation.');
   DataDir := ExpandConstant('{localappdata}\tt-tool\data');
   Preferences := AddBackslash(DataDir) + 'tt_tool_ui.json';
   if FileExists(Preferences) then

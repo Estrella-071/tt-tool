@@ -13,6 +13,7 @@ from pathlib import Path
 import cv2
 from PySide6 import QtCore, QtGui, QtWidgets
 from fisher.adb import Adb, PHONE_DEFAULTS, validate_phone_settings
+from fisher.adb_help import BRANDS, guide_for
 from fisher.config import DATA_ROOT
 from fisher.phone_runtime import PhoneRunner
 from fisher.device_profiles import DeviceProfileStore
@@ -49,10 +50,12 @@ QPushButton#fishingPrimary,QPushButton#fishingSecondary {min-height:34px;}
 QPushButton#windowControl {background:transparent; border:0; border-radius:20px; padding:0; min-height:0;}
 QPushButton#windowControl:focus {border:2px solid #8c79ad;}
 QPushButton#danger {background:#f1edf1; color:#725768;}
+QPushButton#usbHelp {background:#454055; color:#f6f3fc; padding:4px 12px; border-radius:12px; font-weight:600;}
 QComboBox,QLineEdit,QDoubleSpinBox,QSpinBox {background:#f1eff4; border:2px solid transparent; border-radius:18px; padding:8px 12px; min-height:20px; selection-background-color:#b9abc9;}
 QComboBox:focus,QLineEdit:focus,QDoubleSpinBox:focus,QSpinBox:focus {border:2px solid #8c79ad;}
 QDoubleSpinBox::up-button,QDoubleSpinBox::down-button,QSpinBox::up-button,QSpinBox::down-button {width:0; border:0;}
 QComboBox::drop-down {border:0; width:30px;}
+QComboBox#disclosure::down-arrow {image:none; width:0; height:0;}
 QComboBox QAbstractItemView {background:#ffffff; border:0; border-radius:18px; padding:8px; selection-background-color:#e5dfed; outline:0;}
 QCheckBox {background:transparent; spacing:10px; padding:5px 0;}
 QCheckBox::indicator {width:22px; height:22px; border-radius:11px; background:#ded9e4;}
@@ -112,6 +115,22 @@ class WindowButton(AnimatedButton):
         elif self.kind=='close':p.drawLine(QtCore.QPointF(16,16),QtCore.QPointF(24,24));p.drawLine(QtCore.QPointF(24,16),QtCore.QPointF(16,24))
         elif self.expanded:p.drawRoundedRect(QtCore.QRectF(14,17,9,9),1,1);p.drawLine(QtCore.QPointF(18,14),QtCore.QPointF(26,14));p.drawLine(QtCore.QPointF(26,14),QtCore.QPointF(26,22))
         else:p.drawRoundedRect(QtCore.QRectF(15,15,10,10),1,1)
+
+class DisclosureComboBox(QtWidgets.QComboBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName('disclosure')
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        color = '#675b7b' if self.isEnabled() else '#a49cad'
+        painter.setPen(QtGui.QPen(QtGui.QColor(color), 1.8,
+                                 QtCore.Qt.PenStyle.SolidLine, QtCore.Qt.PenCapStyle.RoundCap))
+        x, y = self.width() - 18, self.height() / 2
+        painter.drawLine(QtCore.QPointF(x-4, y-2), QtCore.QPointF(x, y+2))
+        painter.drawLine(QtCore.QPointF(x, y+2), QtCore.QPointF(x+4, y-2))
 
 @lru_cache(maxsize=512)
 def traditional_text(text):
@@ -205,18 +224,28 @@ class ResizeHandle(QtWidgets.QWidget):
         p=QtGui.QPainter(self);p.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing);p.setPen(QtGui.QPen(QtGui.QColor('#a69bb7'),3,QtCore.Qt.PenStyle.SolidLine,QtCore.Qt.PenCapStyle.RoundCap));p.drawLine(10,20,20,10);p.drawLine(16,21,21,16)
 
 class FishingWindow(QtWidgets.QMainWindow):
+    SCAN_ACTION = 1
+    ADB_PATH_ACTION = 2
+
     def __init__(self, mode='fishing', start_after_connect=False, *, install_root=None):
         super().__init__(); self.setWindowTitle('tt tool · 手機活動助手');self.setMinimumSize(680,600);self.setMaximumSize(3840,2160);screen=QtWidgets.QApplication.primaryScreen().availableGeometry();self.resize(min(1180,screen.width()-40),min(900,screen.height()-40))
         self.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Window);self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground);self.drag_pos=None;self.last_headline='';self.window_expanded=False;self.restore_rect=None
         self.mode=mode if mode in ('fishing','ruins') else 'fishing';self.runner=None;self.devices=[];self.q=queue.SimpleQueue();self.busy=False;self.adb_path='adb';self.frame=None;self.zoom_dialog=None;self.zoom_preview=None;self.auto_connect=True;self.pending_start=start_after_connect
         self.saved=validate_phone_settings(dict(PHONE_DEFAULTS));self.settings_path=DATA_ROOT/'phone_settings.json';self.language_path=DATA_ROOT/'tt_tool_ui.json';self.language='zh_TW';self._last_messages=None
+        self.ui_preferences = {}
+        self.selected_device = None
         try:
             if self.settings_path.exists():self.saved.update(validate_phone_settings(json.loads(self.settings_path.read_text(encoding='utf-8'))))
         except (OSError,ValueError,TypeError):pass
         try:
-            language=json.loads(self.language_path.read_text(encoding='utf-8')).get('language','zh_TW')
+            self.ui_preferences = json.loads(self.language_path.read_text(encoding='utf-8'))
+            language=self.ui_preferences.get('language','zh_TW')
             if language in dict(LANGUAGE_OPTIONS):self.language=language
-        except (OSError,ValueError,TypeError,AttributeError):pass
+            custom_adb = self.ui_preferences.get('adb_path')
+            if isinstance(custom_adb, str) and Path(custom_adb).is_file():
+                self.adb_path = custom_adb
+        except (OSError,ValueError,TypeError,AttributeError):
+            self.ui_preferences = {}
         self.draft_settings=deepcopy(self.saved);self.pending_profile_reset=set()
         self.maintenance = Maintenance(self, install_root)
         self.build();self.timer=QtCore.QTimer(self);self.timer.setTimerType(QtCore.Qt.TimerType.PreciseTimer);self.timer.timeout.connect(self.poll);self.timer.start(12);self.discovery_timer=QtCore.QTimer(self);self.discovery_timer.timeout.connect(self.scan_if_needed);self.discovery_timer.start(5000);QtCore.QTimer.singleShot(150,self.refresh)
@@ -246,8 +275,14 @@ class FishingWindow(QtWidgets.QMainWindow):
         head=QtWidgets.QHBoxLayout();head.setSpacing(6);head.addWidget(self.label('tt tool','brand'));head.addWidget(self.label('手機活動助手','muted'));head.addStretch();head.addWidget(self.label('ADB  ·  USB','muted'));head.addSpacing(12);head.addWidget(WindowButton('minimize',self.showMinimized));self.max_button=WindowButton('maximize',self.toggle_maximize);head.addWidget(self.max_button);head.addWidget(WindowButton('close',self.close));page.addLayout(head)
         hero=QtWidgets.QFrame();hero.setObjectName('hero');hl=self.hero_layout=QtWidgets.QBoxLayout(QtWidgets.QBoxLayout.Direction.LeftToRight,hero);hl.setContentsMargins(24,18,24,18);hl.setSpacing(14)
         status_block=QtWidgets.QWidget();status_layout=QtWidgets.QVBoxLayout(status_block);status_layout.setContentsMargins(0,0,0,0);status_layout.setSpacing(4)
-        self.headline=self.label('連接你的手機','heroTitle');self.status_effect=QtWidgets.QGraphicsOpacityEffect(self.headline);self.headline.setGraphicsEffect(self.status_effect);self.status_effect.setOpacity(1);self.status_animation=QtCore.QPropertyAnimation(self.status_effect,b'opacity',self);self.status_animation.setDuration(650);self.status_animation.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic);self.status_slide=QtCore.QPropertyAnimation(self.headline,b'pos',self);self.status_slide.setDuration(650);self.status_slide.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic);self.detail=self.label('開啟 USB 偵錯並允許這台電腦','heroDetail');status_layout.addWidget(self.headline);status_layout.addWidget(self.detail);hl.addWidget(status_block,1)
-        device_block=QtWidgets.QWidget();device_line=QtWidgets.QHBoxLayout(device_block);device_line.setContentsMargins(0,0,0,0);device_line.setSpacing(10);self.device=QtWidgets.QComboBox();self.device.setMinimumWidth(150);device_line.addWidget(self.device,1);device_line.addWidget(self.button('重新偵測',self.refresh));self.connect_btn=self.button('連線手機',self.connect_device,'primary');device_line.addWidget(self.connect_btn);self.disconnect_btn=self.button('中斷連線',self.disconnect);device_line.addWidget(self.disconnect_btn);hl.addWidget(device_block,2);page.addWidget(hero)
+        self.headline=self.label('連接你的手機','heroTitle');self.status_effect=QtWidgets.QGraphicsOpacityEffect(self.headline);self.headline.setGraphicsEffect(self.status_effect);self.status_effect.setOpacity(1);self.status_animation=QtCore.QPropertyAnimation(self.status_effect,b'opacity',self);self.status_animation.setDuration(650);self.status_animation.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic);self.status_slide=QtCore.QPropertyAnimation(self.headline,b'pos',self);self.status_slide.setDuration(650);self.status_slide.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic);self.detail=self.label('開啟 USB 偵錯並允許這台電腦','heroDetail');status_layout.addWidget(self.headline);status_layout.addWidget(self.detail)
+        self.usb_help = self.button('USB 連線教學', self.show_usb_help, 'usbHelp')
+        status_layout.addWidget(self.usb_help, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
+        hl.addWidget(status_block,1)
+        device_block=QtWidgets.QWidget();device_line=QtWidgets.QHBoxLayout(device_block);device_line.setContentsMargins(0,0,0,0);device_line.setSpacing(10);self.device=DisclosureComboBox();self.device.setMinimumWidth(150);device_line.addWidget(self.device,1)
+        self.device.setSizeAdjustPolicy(QtWidgets.QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.device.activated.connect(self.select_device_item)
+        self.connect_btn=self.button('連線手機',self.connect_device,'primary');device_line.addWidget(self.connect_btn);self.disconnect_btn=self.button('中斷連線',self.disconnect);device_line.addWidget(self.disconnect_btn);hl.addWidget(device_block,2);page.addWidget(hero)
         self.body_scroll=QtWidgets.QScrollArea();self.body_scroll.setWidgetResizable(True);self.body_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff);self.body_host=QtWidgets.QWidget();self.body=QtWidgets.QBoxLayout(QtWidgets.QBoxLayout.Direction.LeftToRight,self.body_host);self.body.setContentsMargins(0,0,0,0);self.body.setSpacing(18);self.body_scroll.setWidget(self.body_host);page.addWidget(self.body_scroll,1);body=self.body
         left=self.left=self.card();left.setObjectName('previewCard');left.setMinimumWidth(250);left.setMaximumWidth(360);ll=QtWidgets.QVBoxLayout(left);ll.setContentsMargins(20,20,20,20);ll.setSpacing(12)
         ll.addWidget(self.label('即時畫面','heading'));self.preview_label=PhonePreview();self.preview_message='連線後顯示手機畫面';self.preview_label.activated.connect(self.open_preview);ll.addWidget(self.preview_label,1)
@@ -275,7 +310,6 @@ class FishingWindow(QtWidgets.QMainWindow):
         body.addWidget(right,2)
         self.compact_controls=QtWidgets.QFrame();compact_row=QtWidgets.QHBoxLayout(self.compact_controls);compact_row.setContentsMargins(0,0,0,0);compact_row.setSpacing(10);self.compact_start=self.button('開始釣魚',self.toggle_fishing,'primary');self.compact_pause=self.button('結束',self.end,'danger');compact_row.addWidget(self.compact_start,2);compact_row.addWidget(self.compact_pause,1);page.addWidget(self.compact_controls);self.compact_controls.hide()
         foot=QtWidgets.QHBoxLayout();self.metrics=self.label('等待連線','muted');foot.addWidget(self.metrics,1)
-        self.adb_button=self.button('選擇 adb.exe',self.browse);foot.addWidget(self.adb_button)
         self.maintenance_button = self.button('工具維護', self.show_maintenance_menu)
         foot.addWidget(self.maintenance_button)
         self.language_button=self.button(dict(LANGUAGE_OPTIONS)[self.language],self.show_language_menu);self.language_button.setToolTip(self.tr('語言'));foot.addWidget(self.language_button)
@@ -303,11 +337,16 @@ class FishingWindow(QtWidgets.QMainWindow):
     def set_language(self,language,persist=True):
         if language not in dict(LANGUAGE_OPTIONS):return
         self.language=language;self.retranslate_ui()
-        if persist:
-            try:
-                self.language_path.parent.mkdir(parents=True,exist_ok=True)
-                tmp=self.language_path.with_suffix('.tmp');tmp.write_text(json.dumps({'language':language},ensure_ascii=False),encoding='utf-8');tmp.replace(self.language_path)
-            except OSError as exc:self.set_text(self.detail,str(exc))
+        if persist:self.save_ui_preference('language', language)
+    def save_ui_preference(self, key, value):
+        self.ui_preferences[key] = value
+        try:
+            self.language_path.parent.mkdir(parents=True,exist_ok=True)
+            tmp=self.language_path.with_suffix('.tmp')
+            tmp.write_text(json.dumps(self.ui_preferences,ensure_ascii=False),encoding='utf-8')
+            tmp.replace(self.language_path)
+        except OSError as exc:
+            self.set_text(self.detail,str(exc))
     def retranslate_ui(self):
         self.setWindowTitle(self.tr('tt tool · 手機活動助手'))
         for widget in self.findChildren(QtWidgets.QLabel)+self.findChildren(QtWidgets.QAbstractButton):
@@ -316,6 +355,8 @@ class FishingWindow(QtWidgets.QMainWindow):
             if isinstance(source,str):widget.setText(self.tr(source))
         self.language_button.setText(dict(LANGUAGE_OPTIONS)[self.language]);self.language_button.setToolTip(self.tr('語言'))
         self.maintenance_button.setToolTip(f"{self.tr('工具維護')} · v{self.maintenance.version}")
+        self.device.setAccessibleName(self.tr('手機裝置'))
+        self.update_device_items()
         self.advanced_toggle.setToolTip(self.tr('調整畫面、操作位置與活動設定'))
         self.preview_label.setToolTip(self.tr('點擊放大即時預覽'));self.preview_label.setAccessibleName(self.tr('放大手機預覽'))
         if self.preview_label.image.isNull():self.preview_label.setText(self.tr(self.preview_message))
@@ -348,7 +389,8 @@ class FishingWindow(QtWidgets.QMainWindow):
     def set_connected(self,yes):
         self.connect_btn.setVisible(not yes);self.disconnect_btn.setVisible(yes)
         self.disconnect_btn.setEnabled(yes)
-        self.adb_button.setEnabled(not yes)
+        self.usb_help.setVisible(not yes)
+        self.device.setEnabled(not yes)
         self.update_action_buttons()
         self.connect_btn.setEnabled(not yes)
     def update_action_buttons(self):
@@ -359,10 +401,10 @@ class FishingWindow(QtWidgets.QMainWindow):
         for button in (self.start_btn,self.compact_start):button.setEnabled(connected);self.set_text(button,text)
         for button in (self.pause_btn,self.compact_pause):button.setEnabled(bool(active or session))
     def update_space_shortcut(self,old,new):
-        footer_buttons = (self.adb_button, self.maintenance_button, self.language_button)
+        command_buttons = (self.usb_help, self.maintenance_button, self.language_button)
         widget=new
         while widget is not None and widget is not self:
-            if isinstance(widget,(QtWidgets.QLineEdit,QtWidgets.QAbstractSpinBox,QtWidgets.QComboBox,AnimatedSwitch,PhonePreview)) or widget in footer_buttons:
+            if isinstance(widget,(QtWidgets.QLineEdit,QtWidgets.QAbstractSpinBox,QtWidgets.QComboBox,AnimatedSwitch,PhonePreview)) or widget in command_buttons:
                 self.space_shortcut.setEnabled(False);return
             widget=widget.parentWidget()
         self.space_shortcut.setEnabled(True)
@@ -403,26 +445,59 @@ class FishingWindow(QtWidgets.QMainWindow):
             try:return adb.devices()
             finally:adb.close()
         def done(devices):
-            self.devices=devices;self.device.clear()
-            for d in devices:self.device.addItem(f'{d.serial}  ·  {d.state}',d.serial)
-            authorized=[i for i,d in enumerate(devices) if d.state=='device']
+            self.devices = devices
+            authorized = [d.serial for d in devices if d.state == 'device']
+            if self.selected_device not in authorized:
+                self.selected_device = authorized[0] if len(authorized) == 1 else None
+            self.update_device_items()
             if self.auto_connect and len(authorized)==1:
-                self.device.setCurrentIndex(authorized[0]);self.set_text(self.headline,'正在連線手機');self.set_text(self.detail,'正在載入手機畫面。');self.connect_device();return
+                self.set_text(self.headline,'正在連線手機');self.set_text(self.detail,'正在載入手機畫面。');self.connect_device();return
             self.set_text(self.headline,'選擇手機' if devices else '未偵測到手機')
-            self.set_text(self.detail,'請選擇已授權的裝置並連線。' if devices else '請確認 USB 資料線、USB 偵錯與授權。')
+            if authorized:
+                detail = '請選擇已授權的裝置並連線。'
+            elif any(device.state == 'unauthorized' for device in devices):
+                detail = '解鎖手機，並在提示中允許這台電腦進行 USB 偵錯。'
+            else:
+                detail = '請確認 USB 資料線、USB 偵錯與授權。'
+            self.set_text(self.detail, detail)
         self.background(work,done)
+    def update_device_items(self):
+        self.device.clear()
+        placeholder = '選擇手機' if self.devices else '未偵測到手機'
+        self.device.addItem(self.tr(placeholder))
+        states = {'device': '可連線', 'unauthorized': '待手機授權', 'offline': '離線'}
+        for device in self.devices:
+            status = self.tr(states.get(device.state, device.state))
+            self.device.addItem(f'{device.serial}  ·  {status}', device.serial)
+        self.device.insertSeparator(self.device.count())
+        self.device.addItem(self.tr('重新偵測'), self.SCAN_ACTION)
+        self.device.addItem(self.tr('ADB 工具位置…'), self.ADB_PATH_ACTION)
+        self.device.setCurrentIndex(max(0, self.device.findData(self.selected_device)))
+    def select_device_item(self, index):
+        value = self.device.itemData(index)
+        if isinstance(value, str) or value is None:
+            self.selected_device = value
+            return
+        self.device.setCurrentIndex(max(0, self.device.findData(self.selected_device)))
+        if value == self.SCAN_ACTION:
+            self.refresh()
+        elif value == self.ADB_PATH_ACTION:
+            self.show_adb_tools()
     def scan_if_needed(self):
-        if self.auto_connect and not self.runner and not self.busy:self.refresh()
+        if (self.auto_connect and not self.runner and not self.busy
+                and not self.device.view().isVisible()
+                and QtWidgets.QApplication.activeModalWidget() is None):
+            self.refresh()
     def connect_device(self):
+        serial = self.device.currentData()
+        if not any(device.serial == serial and device.state == 'device' for device in self.devices):
+            self.set_text(self.detail,'請選擇已授權的手機。');return
         if shutil.which('ffmpeg') is None:
             self.set_text(self.headline,'連線未完成')
             self.set_text(self.detail,'找不到 FFmpeg。加入 PATH 後重新開啟 tt tool。')
             return
-        index=self.device.currentIndex()
-        if index<0 or self.devices[index].state!='device':self.set_text(self.detail,'請選擇已授權的手機。');return
         try:cfg=self.save()
         except (ValueError,OSError) as exc:self.set_text(self.detail,str(exc));return
-        serial=self.devices[index].serial
         def work():
             adb=Adb(self.adb_path,serial)
             try:return adb.capture(),adb.foreground()
@@ -474,10 +549,79 @@ class FishingWindow(QtWidgets.QMainWindow):
         self.zoom_dialog,self.zoom_preview=dialog,preview
         def closed(_):self.zoom_dialog=None;self.zoom_preview=None
         dialog.finished.connect(closed);dialog.show()
-    def browse(self):
+    def show_usb_help(self):
+        screen = self.screen().availableGeometry()
+        dialog, content = self.maintenance.panel('USB 連線教學', width=min(600, screen.width()-40))
+        brands = DisclosureComboBox(dialog)
+        brands.setAccessibleName(self.tr('手機品牌'))
+        for key, label in BRANDS:
+            brands.addItem(self.tr('其他 Android 手機') if key == 'other' else label, key)
+        content.addWidget(brands)
+        scroll = QtWidgets.QScrollArea(dialog)
+        scroll.setWidgetResizable(True)
+        scroll.setFixedHeight(max(140, min(270, screen.height()-260)))
+        card = self.card()
+        steps = QtWidgets.QVBoxLayout(card)
+        steps.setContentsMargins(20, 16, 20, 16)
+        steps.setSpacing(12)
+        scroll.setWidget(card)
+        content.addWidget(scroll)
+        source = ''
+
+        def show_steps():
+            nonlocal source
+            while steps.count():
+                previous = steps.takeAt(0).widget()
+                previous.hide()
+                previous.deleteLater()
+            instructions, source = guide_for(brands.currentData(), self.language)
+            for index, instruction in enumerate(instructions, start=1):
+                label = self.label(f'{index}.  {instruction}')
+                label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+                steps.addWidget(label)
+
+        brands.currentIndexChanged.connect(show_steps)
+        show_steps()
+        actions = QtWidgets.QHBoxLayout()
+        official = self.button('官方說明', lambda: QtGui.QDesktopServices.openUrl(QtCore.QUrl(source)))
+        actions.addWidget(official)
+        actions.addStretch()
+        actions.addWidget(self.button('關閉', dialog.accept, 'primary'))
+        content.addLayout(actions)
+        dialog.finished.connect(dialog.deleteLater)
+        dialog.open()
+    def show_adb_tools(self):
+        if self.runner or self.busy:
+            return
+        dialog, content = self.maintenance.panel('ADB 工具位置')
+        content.addWidget(self.label('ADB 是電腦與 Android 手機通訊的工具。一般會從系統自動找到。只有在已下載 Platform-Tools、但程式找不到 ADB 時，才需要指定檔案。'))
+        location = self.label(shutil.which(self.adb_path) or self.tr('目前找不到 ADB'), 'muted')
+        location.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        location.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+        content.addWidget(location)
+        actions = QtWidgets.QHBoxLayout()
+        actions.addWidget(self.button('自動尋找', lambda: self.use_adb_path('adb', dialog)))
+        actions.addStretch()
+        actions.addWidget(self.button('選擇 ADB 執行檔…', lambda: self.browse(dialog), 'primary'))
+        content.addLayout(actions)
+        dialog.finished.connect(dialog.deleteLater)
+        dialog.open()
+    def browse(self, dialog=None):
         if self.runner or self.busy:return
-        path,_=QtWidgets.QFileDialog.getOpenFileName(self,self.tr('選擇 adb.exe'),'',self.tr('ADB (adb.exe);;所有檔案 (*)'),options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
-        if path:self.adb_path=path;self.refresh()
+        resolved = shutil.which(self.adb_path)
+        start = (str(Path(resolved).parent) if resolved else
+                 QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.DownloadLocation))
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            dialog or self, self.tr('選擇 ADB 執行檔…'), start, 'ADB (adb.exe)',
+        )
+        if path and Path(path).name.casefold() == 'adb.exe' and Path(path).is_file():
+            self.use_adb_path(path, dialog)
+    def use_adb_path(self, path, dialog):
+        self.adb_path = path
+        self.save_ui_preference('adb_path', None if path == 'adb' else path)
+        if dialog is not None:
+            dialog.accept()
+        self.refresh()
     def show_status(self,status,state,reason):
         self._last_messages=(status,state,reason);self._rendering_status=True
         try:

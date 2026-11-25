@@ -12,6 +12,58 @@ function Invoke-Setup([string] $Application, [string[]] $Flags, [int] $ExpectedE
     }
 }
 
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class SetupWindowShape {
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteObject(IntPtr region);
+    [DllImport("user32.dll")]
+    private static extern int GetWindowRgn(IntPtr window, IntPtr region);
+
+    public static bool IsRounded(IntPtr window) {
+        var region = CreateRectRgn(0, 0, 0, 0);
+        try { return GetWindowRgn(window, region) == 3; }
+        finally { DeleteObject(region); }
+    }
+}
+'@
+
+function Test-RoundedWindow([string] $Application, [string[]] $Flags, [string] $WindowKind) {
+    $process = Start-Process -FilePath $Application -ArgumentList $Flags -WindowStyle Normal -PassThru
+    $testIds = [Collections.Generic.HashSet[int]]::new()
+    $null = $testIds.Add($process.Id)
+    try {
+        $deadline = [DateTime]::UtcNow.AddSeconds(25)
+        do {
+            foreach ($pidToCheck in @($testIds)) {
+                foreach ($child in Get-CimInstance Win32_Process -Filter "ParentProcessId=$pidToCheck") {
+                    $null = $testIds.Add([int] $child.ProcessId)
+                }
+            }
+            foreach ($candidate in Get-Process -Id @($testIds) -ErrorAction SilentlyContinue) {
+                $handle = $candidate.MainWindowHandle
+                if ($handle -ne [IntPtr]::Zero -and [SetupWindowShape]::IsRounded($handle)) {
+                    Write-Host "Observed rounded $WindowKind window ($($candidate.MainWindowTitle))."
+                    return
+                }
+            }
+            Start-Sleep -Milliseconds 250
+        } while ([DateTime]::UtcNow -lt $deadline)
+        throw "No rounded $WindowKind window appeared"
+    }
+    finally {
+        # Neither probe proceeds past the first interactive page or confirmation.
+        foreach ($testId in @($testIds) | Sort-Object -Descending) {
+            Stop-Process -Id $testId -ErrorAction SilentlyContinue
+            Wait-Process -Id $testId -Timeout 10 -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 $setup = (Get-Item -LiteralPath $SetupPath).FullName
 $bytes = [IO.File]::ReadAllBytes($setup)
 $peOffset = [BitConverter]::ToInt32($bytes, 0x3c)
@@ -32,6 +84,7 @@ foreach ($path in @($target, $data, $shortcutPath, $desktopPath, $unmanagedLink)
 }
 $flags = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', ('/LOG="' + $log + '"'))
 $flags += ('/DIR="' + $target + '"')
+Test-RoundedWindow $setup @('/LANG=en', '/NORESTART') 'setup'
 Invoke-Setup $setup ($flags + '/LANG=ko')
 if (!(Test-Path -LiteralPath $shortcutPath -PathType Leaf) -or
     !(Test-Path -LiteralPath $appLink -PathType Leaf) -or (Test-Path -LiteralPath $desktopPath)) {
@@ -39,9 +92,7 @@ if (!(Test-Path -LiteralPath $shortcutPath -PathType Leaf) -or
 }
 $pythonw = Join-Path $target 'runtime\pythonw.exe'
 $launcher = Join-Path $target 'app\tt_tool_launcher.py'
-foreach ($file in @('tt-tool.ico', 'uninstall-mark.png')) {
-    if (!(Test-Path -LiteralPath (Join-Path $target $file))) { throw "Installed image missing: $file" }
-}
+if (!(Test-Path -LiteralPath (Join-Path $target 'tt-tool.ico'))) { throw 'Installed icon missing' }
 
 $installedPython = Join-Path $target 'runtime\python.exe'
 & $installedPython -I -B $launcher --check
@@ -59,6 +110,7 @@ if actual is None or not actual.samefile(expected):
 '@
 & $installedPython -I -B -c $checkUninstaller $uninstaller
 if ($LASTEXITCODE -ne 0) { throw 'Installed app could not resolve its registered uninstaller' }
+Test-RoundedWindow $uninstaller @('/SILENT', '/NORESTART', '/TTTOOLPROMPT') 'uninstall confirmation'
 
 function Test-ShortcutLaunch([string] $LinkPath, [string] $ExpectedTitle) {
     # ShellExecute follows the real Windows shortcut, including its Unicode path.
@@ -119,11 +171,21 @@ if ((Get-Content -LiteralPath $unmanagedLink -Raw).Trim() -ne 'Unmanaged Start M
 }
 Test-ShortcutLaunch $appLink 'tt tool · モバイル活動アシスタント'
 Invoke-Setup $uninstaller @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')
-foreach ($path in @($shortcutPath, $desktopPath, $appLink, $launcher, (Join-Path $target 'uninstall-mark.png'))) {
+foreach ($path in @($shortcutPath, $desktopPath, $appLink, $launcher)) {
     if (Test-Path -LiteralPath $path) { throw "Uninstall left an installed file or shortcut: $path" }
 }
 if ((Get-Content -LiteralPath $unmanagedLink -Raw).Trim() -ne 'Unmanaged Start Menu entry') {
     throw 'Uninstall removed or modified an unmanaged Start Menu entry'
 }
 if ((Get-Content -LiteralPath $pref -Raw | ConvertFrom-Json).language -ne 'ja') { throw 'Uninstall removed settings' }
-Write-Output 'Verified x64 setup, shortcut choices and launches, upgrade location, uninstall, and settings preservation'
+$dataRootSibling = Join-Path (Split-Path -Parent $data) 'outside-data.txt'
+'Unrelated file' | Set-Content -LiteralPath $dataRootSibling -Encoding utf8NoBOM
+$diagnostics = New-Item -ItemType Directory -Path (Join-Path $data 'logs')
+Set-Content -LiteralPath (Join-Path $diagnostics.FullName 'sample.log') -Value 'Test diagnostics'
+Invoke-Setup $setup ($flags + '/LANG=en' + '/MERGETASKS=!startmenu,!desktop')
+Invoke-Setup $uninstaller @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TTTOOLCLEARDATA')
+if (Test-Path -LiteralPath $data) { throw 'Opt-in uninstall did not remove app data' }
+if ((Get-Content -LiteralPath $dataRootSibling -Raw).Trim() -ne 'Unrelated file') {
+    throw 'Opt-in uninstall changed a file outside app data'
+}
+Write-Output 'Verified x64 setup, shortcut choices and launches, upgrade location, uninstall, settings preservation and explicit app data removal'

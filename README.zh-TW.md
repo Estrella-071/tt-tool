@@ -4,15 +4,15 @@
 
 tt tool 是 Windows 上的 Android 手機活動助手，支援《塔塔冒險隊》（Clash of Critters）的釣魚與遺跡探險。透過 USB 連線預覽手機畫面，辨識在電腦上執行。選擇活動並按下開始後才會操作手機。
 
-**[下載 Windows x64 安裝程式](https://github.com/Estrella-071/tt-tool/releases/download/v1.1.0/tt-tool-1.1.0-windows-x64-setup.exe)** · [v1.1.0 版本資訊與檔案校驗](https://github.com/Estrella-071/tt-tool/releases/tag/v1.1.0)
+**[下載 Windows x64 安裝程式](https://github.com/Estrella-071/tt-tool/releases/download/v1.2.0/tt-tool-1.2.0-windows-x64-setup.exe)** · [v1.2.0 版本資訊與檔案校驗](https://github.com/Estrella-071/tt-tool/releases/tag/v1.2.0)
 
 ![繁體中文主視窗，顯示連線區、手機預覽、釣魚與遺跡探險切換，以及右下角的語言選單](docs/images/tt-tool/zh_TW-main.png)
 
 ## 安裝與開始使用
 
 1. 在 Windows 10 22H2 或 Windows 11（x64）開啟安裝程式並選擇語言。安裝程式已包含 Python 與 Qt。首次安裝可調整安裝資料夾，開始選單捷徑預設勾選，桌面捷徑可自行選用。完成安裝時可選擇是否開啟 **tt tool**。工具首次開啟時會沿用安裝語言。
-2. 安裝 [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) 和 [FFmpeg](https://ffmpeg.org/download.html#build-windows)。把兩者執行檔所在的資料夾加到使用者的 `Path`，開啟新的 PowerShell 執行 `adb version` 和 `ffmpeg -version` 確認。也可在工具下方按 **選擇 adb.exe** 指定 ADB 路徑。更新 `Path` 後請重開工具。
-3. 在 Android 開啟 USB 偵錯，以支援資料傳輸的 USB 線連接電腦，並在手機上允許偵錯。工具會自動連線至唯一已授權的手機。有多台時，選好裝置後按 **連線手機**。
+2. 安裝 [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) 和 [FFmpeg](https://ffmpeg.org/download.html#build-windows)。把兩者執行檔所在的資料夾加到使用者的 `Path`，開啟新的 PowerShell 執行 `adb version` 和 `ffmpeg -version` 確認。找不到 ADB 時，可從裝置選單的 **ADB 工具位置…** 指定既有的 adb.exe。更新 `Path` 後請重開工具。
+3. 從程式中的 **USB 連線教學** 或 [各品牌指南](docs/USB-DEBUGGING.md) 查詢如何開啟 USB 偵錯，以支援資料傳輸的 USB 線連接電腦，並在手機上允許偵錯。工具會自動連線至唯一已授權的手機。有多台時，選好裝置後按 **連線手機**。
 4. 將遊戲維持直向並切到前景，進入對應的釣魚或遺跡探險畫面。確認預覽完整後按 **開始釣魚** 或 **開始探險**。工具視窗中，空白鍵可開始、暫停及繼續，Esc 可結束。從右下方切換介面語言。
 
 若未選擇任何外部捷徑，可從安裝資料夾內的 **tt tool** 捷徑啟動。
@@ -31,13 +31,13 @@ tt tool 是 Windows 上的 Android 手機活動助手，支援《塔塔冒險隊
 
 從視窗底部的 **工具維護** 手動檢查 GitHub 最新版本，或開啟程式與資料所在的資料夾。若有更新，確認後會在瀏覽器開啟發行頁面，再下載並執行安裝程式即可更新。
 
-透過 Windows 安裝程式安裝時，維護選單也可啟動解除安裝。更新及解除安裝都會保留使用者資料。詳見 [Windows 安裝指南（英文）](docs/INSTALLER.md)。
+透過 Windows 安裝程式安裝時，維護選單也可啟動解除安裝。更新會保留資料。解除安裝預設也會保留，勾選 **一併清除 tt tool 的本機資料** 才會移除。詳見 [Windows 安裝指南（英文）](docs/INSTALLER.md)。
 
 ## 排查與本機資料
 
 - **手機未出現**：執行 `adb devices` 並確認裝置顯示為 `device`。若顯示 `unauthorized`，解鎖手機並允許本機 USB 偵錯。部分手機也需要製造商提供的 Windows USB 驅動程式。
 - **裝置已連線，畫面仍空白**：確認 `ffmpeg -version` 可執行，檢查手機直向且畫面未鎖定，再嘗試重新連線。黑邊或裁切可在設定中調整。
-- 安裝版的設定、校正與診斷記錄存於 `%LOCALAPPDATA%\tt-tool\data`。解除安裝會保留資料。影像在本機處理，工具不會自動上傳。 [資料說明](docs/PRIVACY.md)
+- 安裝版的設定、校正與診斷記錄存於 `%LOCALAPPDATA%\tt-tool\data`。解除安裝預設保留資料。影像在本機處理，工具不會自動上傳。 [資料說明](docs/PRIVACY.md)
 
 ## 從原始碼執行與開發
 

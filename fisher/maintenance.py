@@ -45,7 +45,9 @@ def uninstall_program(install_root):
             command, _ = winreg.QueryValueEx(key, "UninstallString")
         if not isinstance(command, str):
             return None
-        path = Path(command.strip().strip('"')).resolve()
+        command = command.strip()
+        quoted = re.fullmatch(r'"([^"]+)"(?: /SILENT /NORESTART /TTTOOLPROMPT)?', command)
+        path = Path(quoted[1] if quoted else command).resolve()
         if (path.parent == install_root.resolve()
                 and re.fullmatch(r"unins[0-9]{3}\.exe", path.name, re.IGNORECASE)
                 and path.is_file() and path.with_suffix(".dat").is_file()):
@@ -77,13 +79,11 @@ class Maintenance(QtCore.QObject):
             menu.addAction(tr("解除安裝…"), self.uninstall)
         return menu
 
-    def dialog(self, title, message, action=None, *, destructive=False):
-        """Use the main window's palette and button treatment for maintenance."""
+    def panel(self, title, *, width=490):
         dialog = QtWidgets.QDialog(self.window, QtCore.Qt.WindowType.FramelessWindowHint)
         dialog.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground)
         dialog.setWindowTitle(self.window.tr(title))
-        dialog.setMinimumWidth(390)
-        dialog.setMaximumWidth(490)
+        dialog.setFixedWidth(width)
         outer = QtWidgets.QVBoxLayout(dialog)
         outer.setContentsMargins(0, 0, 0, 0)
         surface = QtWidgets.QFrame(dialog)
@@ -93,9 +93,19 @@ class Maintenance(QtCore.QObject):
         content.setSpacing(12)
         heading = self.window.label(title, "heading")
         content.addWidget(heading)
+        outer.addWidget(surface)
+        return dialog, content
+
+    def dialog(self, title, message, action=None, *, destructive=False, option=None):
+        """Present a styled confirmation, with an optional off-by-default choice."""
+        dialog, content = self.panel(title)
         detail = self.window.label(message, "controlSubtitle")
         detail.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         content.addWidget(detail)
+        choice = None
+        if option:
+            choice = QtWidgets.QCheckBox(self.window.tr(option), dialog)
+            content.addWidget(choice)
         content.addSpacing(10)
         controls = QtWidgets.QHBoxLayout()
         controls.addStretch()
@@ -109,9 +119,9 @@ class Maintenance(QtCore.QObject):
             confirm.setAutoDefault(False)
             controls.addWidget(confirm)
         content.addLayout(controls)
-        outer.addWidget(surface)
         try:
-            return dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted
+            accepted = dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted
+            return (accepted, choice.isChecked()) if choice is not None else accepted
         finally:
             dialog.deleteLater()
 
@@ -158,7 +168,7 @@ class Maintenance(QtCore.QObject):
                 source = ("目前版本 v{current} 已是最新。" if available == installed
                           else "目前版本 v{current} 比公開版 v{latest} 新。")
                 message = self.window.tr(source).format(**fields)
-                self.dialog("更新檢查", message)
+                self.offer_releases("更新檢查", message)
         finally:
             reply.deleteLater()
 
@@ -178,8 +188,11 @@ class Maintenance(QtCore.QObject):
             self.dialog("無法開啟資料夾", str(path))
 
     def uninstall(self):
-        if not self.dialog("解除安裝 tt tool？", "正在執行的活動將結束。已儲存的設定與校正資料會保留。",
-                           "解除安裝", destructive=True):
+        confirmed, clear_data = self.dialog(
+            "解除安裝 tt tool？", "正在執行的活動將結束。你可以同時移除設定、校正資料與記錄。",
+            "解除安裝", destructive=True, option="一併清除 tt tool 的本機資料",
+        )
+        if not confirmed:
             return
         program = uninstall_program(self.install_root)
         fallback = "請從 Windows 的「已安裝的應用程式」解除安裝。"
@@ -189,9 +202,10 @@ class Maintenance(QtCore.QObject):
         # Release the phone session before handing off to the uninstaller.
         if self.window.runner:
             self.window.disconnect()
-        started, _ = QtCore.QProcess.startDetached(
-            str(program), ["/SILENT", "/NORESTART"], str(program.parent.parent),
-        )
+        arguments = ["/SILENT", "/NORESTART"]
+        if clear_data:
+            arguments.append("/TTTOOLCLEARDATA")
+        started, _ = QtCore.QProcess.startDetached(str(program), arguments, str(program.parent.parent))
         if started:
             self.window.close()
         else:

@@ -35,6 +35,8 @@ class MaintenanceTests(unittest.TestCase):
             program.with_suffix(".dat").touch()
             value.return_value = (f'"{program}"', 1)
             self.assertEqual(uninstall_program(folder), program.resolve())
+            value.return_value = (f'"{program}" /SILENT /NORESTART /TTTOOLPROMPT', 1)
+            self.assertEqual(uninstall_program(folder), program.resolve())
             self.assertIsNone(uninstall_program(folder / "another-install"))
             value.return_value = (f'"{program}" /VERYSILENT', 1)
             self.assertIsNone(uninstall_program(folder))
@@ -63,11 +65,24 @@ class MaintenanceTests(unittest.TestCase):
         offer.assert_called_once_with("有新版本", f"You have v{maintenance.version}. Version v99.1.0 is available.")
         self.assertIsNone(maintenance.reply)
 
+    def test_current_version_still_offers_release_page(self):
+        window = FishingWindow()
+        self.addCleanup(window.deleteLater)
+        window.set_language("en", persist=False)
+        maintenance = window.maintenance
+        maintenance.reply = Mock()
+        maintenance.reply.attribute.return_value = 200
+        maintenance.reply.error.return_value = QtNetwork.QNetworkReply.NetworkError.NoError
+        maintenance.reply.readAll.return_value = f'{{"tag_name":"v{maintenance.version}"}}'.encode()
+        with patch.object(maintenance, "offer_releases") as offer:
+            maintenance.update_ready()
+        offer.assert_called_once_with("更新檢查", f"You’re up to date on v{maintenance.version}.")
+
     def test_uninstall_cancel_keeps_session_open(self):
         window = FishingWindow()
         self.addCleanup(window.deleteLater)
         with (patch("fisher.maintenance.uninstall_program", return_value=Path("unins000.exe")),
-              patch.object(window.maintenance, "dialog", return_value=False),
+              patch.object(window.maintenance, "dialog", return_value=(False, False)),
               patch.object(window, "close") as close):
             window.maintenance.uninstall()
         close.assert_not_called()
@@ -78,7 +93,7 @@ class MaintenanceTests(unittest.TestCase):
         runner = Mock()
         window.runner = runner
         with (patch("fisher.maintenance.uninstall_program", return_value=Path("unins000.exe")),
-              patch.object(window.maintenance, "dialog", return_value=True) as dialog,
+              patch.object(window.maintenance, "dialog", return_value=(True, False)) as dialog,
               patch("fisher.maintenance.QtCore.QProcess.startDetached", return_value=(False, 0)),
               patch.object(window, "close") as close):
             window.maintenance.uninstall()
@@ -86,3 +101,15 @@ class MaintenanceTests(unittest.TestCase):
         self.assertIsNone(window.runner)
         close.assert_not_called()
         self.assertEqual(dialog.call_args.args[0], "無法啟動解除安裝程式")
+
+    def test_uninstall_passes_delete_data_only_when_selected(self):
+        window = FishingWindow()
+        self.addCleanup(window.deleteLater)
+        with (patch("fisher.maintenance.uninstall_program", return_value=Path("unins000.exe")),
+              patch.object(window.maintenance, "dialog") as dialog,
+              patch("fisher.maintenance.QtCore.QProcess.startDetached", return_value=(True, 1)) as launch,
+              patch.object(window, "close")):
+            for clear in (False, True):
+                dialog.return_value = (True, clear)
+                window.maintenance.uninstall()
+                self.assertEqual("/TTTOOLCLEARDATA" in launch.call_args.args[1], clear)
