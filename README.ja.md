@@ -4,15 +4,15 @@
 
 tt tool は、Android 版『Clash of Critters』の釣りと遺跡探検を Windows から操作するツールです。USB 経由でスマートフォンの画面をプレビューし、PC 上で画面を認識します。アクティビティを選んで開始すると、スマートフォンへの入力が始まります。
 
-**[Windows x64 インストーラーをダウンロード](https://github.com/Estrella-071/tt-tool/releases/download/v1.1.0/tt-tool-1.1.0-windows-x64-setup.exe)** · [v1.1.0 のリリースノートとチェックサム](https://github.com/Estrella-071/tt-tool/releases/tag/v1.1.0)
+**[Windows x64 インストーラーをダウンロード](https://github.com/Estrella-071/tt-tool/releases/download/v1.2.0/tt-tool-1.2.0-windows-x64-setup.exe)** · [v1.2.0 のリリースノートとチェックサム](https://github.com/Estrella-071/tt-tool/releases/tag/v1.2.0)
 
 ![日本語のメインウィンドウ。スマートフォンの接続、プレビュー、アクティビティの切り替え、言語ボタンが表示されている](docs/images/tt-tool/ja-main.png)
 
 ## インストールと使い方
 
 1. Windows 10 22H2 または Windows 11（x64）でインストーラーを実行し、言語を選びます。Python と Qt はインストーラーに含まれています。初回インストール時は、インストール先を変更できます。スタートメニューのショートカットは既定で選択されており、デスクトップのショートカットは必要に応じて追加できます。インストール完了時に **tt tool** を起動するか選べます。初回起動時はインストール時に選択した言語で表示されます。
-2. [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) と [FFmpeg](https://ffmpeg.org/download.html#build-windows) を導入します。実行ファイルが入ったフォルダーをユーザーの `Path` に追加し、新しい PowerShell で `adb version` と `ffmpeg -version` が実行できることを確認します。ADB は画面下部の **adb.exe を選択** から指定することもできます。`Path` を変更したら tt tool を開き直してください。
-3. Android で USB デバッグを有効にし、データ通信に対応した USB ケーブルで PC と接続します。スマートフォンに表示される確認画面でデバッグを許可します。許可済みの端末が 1 台なら自動で接続されます。複数台の場合は端末を選んで **接続** を押します。
+2. [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) と [FFmpeg](https://ffmpeg.org/download.html#build-windows) を導入します。実行ファイルが入ったフォルダーをユーザーの `Path` に追加し、新しい PowerShell で `adb version` と `ffmpeg -version` が実行できることを確認します。ADB が見つからない場合は端末メニューの **ADB ツールの場所…** から既存の adb.exe を指定できます。`Path` を変更したら tt tool を開き直してください。
+3. アプリの **USB 接続ガイド** または [メーカー別ガイド](docs/USB-DEBUGGING.md) で USB デバッグを有効にし、データ通信に対応した USB ケーブルで PC と接続します。スマートフォンに表示される確認画面でデバッグを許可します。許可済みの端末が 1 台なら自動で接続されます。複数台の場合は端末を選んで **接続** を押します。
 4. スマートフォンを縦向きにし、ゲームを前面に出して、釣りまたは遺跡探検の画面を表示します。プレビューで画面全体を確認し、**釣りを開始** または **探検を開始** を押します。tt tool のウィンドウにフォーカスがあるときは、スペースキーで開始、一時停止、再開ができ、Esc で終了できます。表示言語は右下のボタンで切り替えます。
 
 ショートカットをどちらも追加しなかった場合は、インストール先の **tt tool** ショートカットから起動できます。
@@ -31,13 +31,13 @@ tt tool は、Android 版『Clash of Critters』の釣りと遺跡探検を Wind
 
 ウィンドウ下部の **メンテナンス** から、GitHub の最新リリースを手動で確認したり、アプリのフォルダーやデータの保存先を開いたりできます。更新がある場合は確認後にブラウザーでリリースページが開くので、インストーラーをダウンロードして実行してください。
 
-Windows インストーラーで導入した場合は、このメニューからアンインストールも開始できます。更新やアンインストールを行ってもユーザーデータは残ります。詳しくは [Windows インストールガイド（英語）](docs/INSTALLER.md) を参照してください。
+Windows インストーラーで導入した場合は、このメニューからアンインストールも開始できます。更新時はデータを保持します。アンインストール時は **tt tool のローカルデータも削除** を選ぶと削除できます。詳しくは [Windows インストールガイド（英語）](docs/INSTALLER.md) を参照してください。
 
 ## トラブル対処とローカルデータ
 
 - **スマートフォンが表示されない**場合は、`adb devices` で状態が `device` になっているか確認します。`unauthorized` と表示される場合は、スマートフォンのロックを解除して、この PC での USB デバッグを許可してください。機種によってはメーカー提供の Windows 用 USB ドライバーが必要です。
 - **接続済みでも画面が表示されない**場合は、`ffmpeg -version` が実行できるか確認し、スマートフォンを縦向きにしてロックを解除した状態で再接続します。黒枠や表示の欠けがある場合は、設定でゲームの範囲を調整してください。
-- インストール版の設定、補正データ、診断ログは `%LOCALAPPDATA%\tt-tool\data` に保存されます。アンインストール後もこのデータは残ります。画面は PC 上で処理され、自動アップロードは行いません。[ローカルデータの説明](docs/PRIVACY.md)
+- インストール版の設定、補正データ、診断ログは `%LOCALAPPDATA%\tt-tool\data` に保存されます。アンインストール時の既定ではデータを保持します。画面は PC 上で処理され、自動アップロードは行いません。[ローカルデータの説明](docs/PRIVACY.md)
 
 ## ソースコードからの起動と開発
 

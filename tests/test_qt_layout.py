@@ -168,6 +168,16 @@ class QtLayoutTests(unittest.TestCase):
         with patch.object(self.w,'refresh') as refresh:
             self.w.scan_if_needed();refresh.assert_called_once_with()
             refresh.reset_mock();self.w.auto_connect=False;self.w.scan_if_needed();refresh.assert_not_called()
+    def test_scan_action_restores_selected_phone(self):
+        self.w.devices = [type('Device', (), {'serial': 'phone', 'state': 'device'})()]
+        self.w.selected_device = 'phone'
+        self.w.update_device_items()
+        scan = self.w.device.findData(self.w.SCAN_ACTION)
+        self.w.device.setCurrentIndex(scan)
+        with patch.object(self.w, 'refresh') as refresh:
+            self.w.select_device_item(scan)
+        refresh.assert_called_once()
+        self.assertEqual(self.w.device.currentData(), 'phone')
     def test_preview_retains_complete_device_image(self):
         image=QtGui.QImage(360,800,QtGui.QImage.Format.Format_RGB32)
         image.fill(QtGui.QColor('blue'));image.setPixelColor(180,0,QtGui.QColor('red'));image.setPixelColor(180,799,QtGui.QColor('green'))

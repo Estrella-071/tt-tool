@@ -1,5 +1,12 @@
 # Changelog
 
+## tt tool 1.2.0
+
+- Redesign the Windows setup and removal windows with rounded surfaces, custom action buttons and consistent spacing.
+- Offer optional removal of local settings, calibration and logs when uninstalling.
+- Keep the release-page action available in every update result.
+- Add an offline USB debugging guide grouped by phone brand, move scan and ADB path commands into the device menu, and use the Windows file picker.
+
 ## tt tool 1.1.0
 
 - Added a maintenance menu to check GitHub for updates, open the application and data folders, and start the uninstaller on installed copies. Update checks run on request and require confirmation before opening a release page.

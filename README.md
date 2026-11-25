@@ -4,15 +4,15 @@
 
 tt tool is a Windows companion for fishing and Ruins Adventure in Clash of Critters on Android. It previews the phone over USB and recognizes activity screens locally. Phone input begins after you select an activity and start a session.
 
-**[Download the Windows x64 installer](https://github.com/Estrella-071/tt-tool/releases/download/v1.1.0/tt-tool-1.1.0-windows-x64-setup.exe)** · [v1.1.0 release notes and checksums](https://github.com/Estrella-071/tt-tool/releases/tag/v1.1.0)
+**[Download the Windows x64 installer](https://github.com/Estrella-071/tt-tool/releases/download/v1.2.0/tt-tool-1.2.0-windows-x64-setup.exe)** · [v1.2.0 release notes and checksums](https://github.com/Estrella-071/tt-tool/releases/tag/v1.2.0)
 
 ![tt tool main window in English, with the phone connection area, preview, activity selector and language button](docs/images/tt-tool/en-main.png)
 
 ## Install and get started
 
 1. Run the installer on Windows 10 22H2 or Windows 11 (x64) and choose a language. The installer includes Python and Qt. On a first install, you can change the installation folder. The Start menu shortcut is selected by default, and the desktop shortcut is optional. Choose whether to open **tt tool** when setup finishes. On first launch, the app uses the language you selected during setup.
-2. Install [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) and [FFmpeg](https://ffmpeg.org/download.html#build-windows). Add the folders containing their executables to your user `Path`, then run `adb version` and `ffmpeg -version` in a fresh PowerShell window. You can also use **Choose adb.exe** at the bottom of tt tool to point to ADB. Reopen tt tool after changing `Path`.
-3. Enable USB debugging on Android, connect the phone with a USB data cable and approve the debugging prompt. tt tool connects automatically when exactly one authorized phone is present. If you have several, select one and choose **Connect**.
+2. Install [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) and [FFmpeg](https://ffmpeg.org/download.html#build-windows). Add the folders containing their executables to your user `Path`, then run `adb version` and `ffmpeg -version` in a fresh PowerShell window. If ADB is missing, open **ADB tool location…** in the device menu to point to an existing adb.exe. Reopen tt tool after changing `Path`.
+3. Use **USB connection guide** in tt tool or the [manufacturer guide](docs/USB-DEBUGGING.md) to enable USB debugging, connect the phone with a USB data cable and approve the debugging prompt. tt tool connects automatically when exactly one authorized phone is present. If you have several, select one and choose **Connect**.
 4. Keep the phone in portrait orientation and bring the appropriate fishing or ruins screen to the foreground. Check that the preview shows the whole screen and choose **Start fishing** or **Start exploring**. With the tt tool window focused, Space starts, pauses or resumes the activity, and Esc ends the session. Use the button at the bottom right to change the interface language.
 
 If you skip both shortcuts, open the **tt tool** shortcut inside the installation folder.
@@ -31,13 +31,13 @@ If you skip both shortcuts, open the **tt tool** shortcut inside the installatio
 
 Open **Maintenance** at the bottom of the app to check for updates or open the app and data folders. Update checks run on request. If an update is available, confirm to open the release page in your browser, then download and run the installer.
 
-The maintenance menu also offers uninstall when tt tool was installed with the Windows installer. Your data stays available after updating or uninstalling. See the [Windows installer guide](docs/INSTALLER.md).
+The maintenance menu also offers uninstall when tt tool was installed with the Windows installer. Updates keep your data. Uninstall also keeps it unless you select **Also delete local tt tool data**. See the [Windows installer guide](docs/INSTALLER.md).
 
 ## Troubleshooting and local data
 
 - **Phone is missing**. Run `adb devices` and check for the `device` status. If it says `unauthorized`, unlock the phone and authorize USB debugging for this computer. Some phones also need the manufacturer's Windows USB driver.
 - **Phone is connected but the preview is blank**. Check that `ffmpeg -version` works, make sure the phone is unlocked and in portrait orientation, then reconnect. Adjust the game region from Settings if the game is cropped or has black borders.
-- The installed app stores settings, calibration and diagnostic logs in `%LOCALAPPDATA%\tt-tool\data`. Uninstalling keeps this data. Frames are processed locally and the app has no automatic uploads. See the [data guide](docs/PRIVACY.md).
+- The installed app stores settings, calibration and diagnostic logs in `%LOCALAPPDATA%\tt-tool\data`. Uninstall keeps this data by default. Frames are processed locally and the app has no automatic uploads. See the [data guide](docs/PRIVACY.md).
 
 ## Run from source and develop
 

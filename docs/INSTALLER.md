@@ -1,6 +1,6 @@
 # Windows x64 installer
 
-Download [tt-tool-1.1.0-windows-x64-setup.exe](https://github.com/Estrella-071/tt-tool/releases/download/v1.1.0/tt-tool-1.1.0-windows-x64-setup.exe) for Windows 10 22H2 or Windows 11 on x64. The installer includes Python, Qt and the local image recognition dependencies. Phone connectivity also requires [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) and [FFmpeg](https://ffmpeg.org/download.html#build-windows).
+Download [tt-tool-1.2.0-windows-x64-setup.exe](https://github.com/Estrella-071/tt-tool/releases/download/v1.2.0/tt-tool-1.2.0-windows-x64-setup.exe) for Windows 10 22H2 or Windows 11 on x64. The installer includes Python, Qt and the local image recognition dependencies. Phone connectivity also requires [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) and [FFmpeg](https://ffmpeg.org/download.html#build-windows).
 
 ## Install and open tt tool
 
@@ -9,20 +9,20 @@ Download [tt-tool-1.1.0-windows-x64-setup.exe](https://github.com/Estrella-071/t
 3. Choose which shortcuts to create. The Start menu shortcut is selected by default. The desktop shortcut is off by default.
 4. On the final screen, select the launch option if you want to open tt tool when Setup finishes. You can also use a shortcut later. An installation folder shortcut named **tt tool** is available even when both external shortcuts are off.
 
-Add the folders containing `adb.exe` and `ffmpeg.exe` to the user `Path` and reopen tt tool. You can point to ADB from **Choose adb.exe** in the app. In a new PowerShell window, run `adb version` and `ffmpeg -version` to check that PowerShell can find them. The phone's Android build must support `screenrecord --time-limit 0`.
+Add the folders containing `adb.exe` and `ffmpeg.exe` to the user `Path` and reopen tt tool. For a custom ADB installation, choose **ADB tool location…** in the device menu. Use the app's **USB connection guide** or the [manufacturer reference](USB-DEBUGGING.md) to prepare the phone. The phone's Android build must support `screenrecord --time-limit 0`.
 
 ## Update, find files or uninstall
 
 Open **Maintenance** at the bottom of the app. **Check for updates** reads the latest GitHub release on request. If a newer version is available, confirm to open its release page in your browser. Download the installer, close tt tool and run Setup again. The app keeps its existing language and settings during an update. Use **Open file location** to find the app or **Open settings folder** to find its data.
 
-For installed copies, choose **Uninstall…** to start the Windows uninstaller. You can also remove the app from Windows Settings under **Apps**. Your settings, calibration and local diagnostic logs remain under `%LOCALAPPDATA%\tt-tool\data`. If moving from a source checkout, close both copies before transferring `phone_settings.json` and `tt_tool_ui.json` to this directory.
+For installed copies, choose **Uninstall…** from tt tool or remove the app from **Installed apps** in Windows Settings. Settings, calibration and local diagnostic logs remain in `%LOCALAPPDATA%\tt-tool\data` by default. Select **Also delete local tt tool data** to remove that folder too. If moving from a source checkout, close both copies before transferring `phone_settings.json` and `tt_tool_ui.json` to this directory.
 
 ## Verify a download
 
-The installer is distributed without Authenticode signing. Compare its SHA-256 hash with `SHA256SUMS.txt` from the [same GitHub release](https://github.com/Estrella-071/tt-tool/releases/tag/v1.1.0).
+The installer is distributed without Authenticode signing. Compare its SHA-256 hash with `SHA256SUMS.txt` from the [same GitHub release](https://github.com/Estrella-071/tt-tool/releases/tag/v1.2.0).
 
 ```powershell
-Get-FileHash .\tt-tool-1.1.0-windows-x64-setup.exe -Algorithm SHA256
+Get-FileHash .\tt-tool-1.2.0-windows-x64-setup.exe -Algorithm SHA256
 ```
 
 ## Build and verify an installer
