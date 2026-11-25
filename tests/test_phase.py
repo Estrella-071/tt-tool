@@ -52,6 +52,25 @@ class PhaseTests(unittest.TestCase):
         self.assertAlmostEqual(arrival,.2)
         self.assertEqual((direction,turns),(1,0))
 
+    def test_directional_visit_selects_requested_later_leg(self):
+        clock = PhaseClock(.5, 0, 1)
+        clock.observe(0, .8)
+        arrival, direction, turns = clock.next_visit(.9, 0, direction=-1)
+        self.assertAlmostEqual(arrival, .6)
+        self.assertEqual((direction, turns), (-1, 1))
+
+    def test_plan_uses_reverse_entry_after_bouncing_at_near_edge(self):
+        model = PhaseModel(DEFAULTS, DeliveryLatency(40), SpeedCalibration())
+        model.track = (79., 263.)
+        model.target = (228., 258.)
+        model.clock.observe(0, .93)
+        decision = model.plan(0)
+        self.assertEqual(decision['arrival_direction'], -1)
+        self.assertEqual(decision['planned_turns'], 0)
+        self.assertLess(decision['arrival_ms'], 600)
+        self.assertGreaterEqual(decision['predicted_x'], 228)
+        self.assertLessEqual(decision['predicted_x'], 258)
+
     def test_inside_observation_is_projected_to_delivery_time(self):
         c=Controller(DEFAULTS)
         d=c.step(observation(175),0,.02)

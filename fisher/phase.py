@@ -55,7 +55,7 @@ class PhaseClock:
             self.anchor_time, self.anchor_phase = now, phase
         self.rate = float(rate)
 
-    def next_visit(self, position, now):
+    def next_visit(self, position, now, direction=None):
         """返回下一次到达指定位置的时刻、方向和经过的端点数。"""
         phase = self.phase_at(now)
         if phase is None:
@@ -63,14 +63,16 @@ class PhaseClock:
         u = min(self.length, max(0, position-self.left))
         period = 2*self.length
         candidates = []
-        for base, direction in ((u, 1), (period-u, -1)):
+        for base, leg_direction in ((u, 1), (period-u, -1)):
+            if direction is not None and leg_direction != direction:
+                continue
             k = math.ceil((phase-base-1e-10)/period)
             dest = base+k*period
             if dest >= phase-1e-9:
-                candidates.append((dest, direction))
-        dest, direction = min(candidates)
+                candidates.append((dest, leg_direction))
+        dest, leg_direction = min(candidates)
         turns = max(0, math.floor((dest-1e-9)/self.length)-math.floor(phase/self.length))
-        return now+max(0, dest-phase)/self.rate, direction, turns
+        return now+max(0, dest-phase)/self.rate, leg_direction, turns
 
 
 class PhaseModel:
@@ -224,8 +226,8 @@ class PhaseModel:
             return self._decision(now, now, direction, 0, "inside", now+remaining)
         candidates=[]
         for point,expected_direction in ((safe_left,1),(safe_right,-1)):
-            visit=self.clock.next_visit(point,effective_now)
-            if visit[1]==expected_direction:candidates.append((visit,point))
+            visit=self.clock.next_visit(point,effective_now,expected_direction)
+            candidates.append((visit,point))
         if candidates:(arrival,direction,turns),aim=min(candidates,key=lambda item:item[0][0])
         else:
             aim=(left+right)/2;arrival,direction,turns=self.clock.next_visit(aim,effective_now)
