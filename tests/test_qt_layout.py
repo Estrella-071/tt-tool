@@ -178,6 +178,18 @@ class QtLayoutTests(unittest.TestCase):
             self.w.select_device_item(scan)
         refresh.assert_called_once()
         self.assertEqual(self.w.device.currentData(), 'phone')
+    def test_close_fades_before_ending_the_session(self):
+        runner = Mock()
+        self.w.runner = runner
+        with patch.object(self.w, 'motion_enabled', return_value=True):
+            self.w.close()
+            self.assertTrue(self.w.isVisible())
+            self.assertEqual(self.w.fade_action, 'close')
+            runner.close.assert_not_called()
+            QtTest.QTest.qWait(250)
+        self.assertFalse(self.w.isVisible())
+        runner.close.assert_called_once_with()
+        self.assertIsNone(self.w.runner)
     def test_preview_retains_complete_device_image(self):
         image=QtGui.QImage(360,800,QtGui.QImage.Format.Format_RGB32)
         image.fill(QtGui.QColor('blue'));image.setPixelColor(180,0,QtGui.QColor('red'));image.setPixelColor(180,799,QtGui.QColor('green'))
